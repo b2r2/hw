@@ -1,4 +1,4 @@
-module github.com/fixme_my_friend/hw02_unpack_string
+module github.com/b2r2/hw/hw02_unpack_string
 
 go 1.16
 
@@ -7,4 +7,5 @@ require (
 	github.com/stretchr/testify v1.7.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	mvdan.cc/gofumpt v0.1.0 // indirect
 )
