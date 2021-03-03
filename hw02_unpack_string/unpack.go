@@ -27,8 +27,11 @@ func Unpack(in string) (string, error) {
 	for inx, char := range in[:len(in)-1] {
 		next = rune(in[inx+1])
 		switch {
-		case !isSpec && unicode.IsDigit(char) && unicode.IsDigit(next):
-			return "", ErrInvalidString
+		case !isSpec && unicode.IsDigit(char):
+			if unicode.IsDigit(next) {
+				return "", ErrInvalidString
+			}
+			continue
 		case !isSpec && char == spec:
 			if !unicode.IsDigit(next) && next != spec {
 				return "", ErrInvalidString
