@@ -20,7 +20,11 @@ func Unpack(in string) (string, error) {
 	if len(in) == 0 {
 		return "", nil
 	}
-	if unicode.IsDigit(rune(in[0])) {
+	if len(in) == 1 {
+		return string(in[0]), nil
+	}
+	if unicode.IsDigit(rune(in[0])) ||
+		(spec == rune(in[0]) && len(in) == 2 && unicode.IsDigit(rune(in[1]))) {
 		return "", ErrInvalidString
 	}
 	var out strings.Builder
@@ -31,7 +35,6 @@ func Unpack(in string) (string, error) {
 			if unicode.IsDigit(next) {
 				return "", ErrInvalidString
 			}
-			continue
 		case !isSpec && char == spec:
 			if !unicode.IsDigit(next) && next != spec {
 				return "", ErrInvalidString
