@@ -20,7 +20,8 @@ func Unpack(in string) (string, error) {
 	if len(in) == 0 {
 		return "", nil
 	}
-	if len(in) == 1 {
+	if len(in) == 1 &&
+		(!unicode.IsDigit(rune(in[0])) || rune(in[0]) != spec) {
 		return string(in[0]), nil
 	}
 	if unicode.IsDigit(rune(in[0])) ||
