@@ -11,23 +11,20 @@ import (
 var (
 	ErrInvalidString = errors.New("invalid string")
 	spec             = '\\'
-	isSpec           bool
 	next             rune
 )
 
 // Unpack ...
 func Unpack(in string) (string, error) {
-	if len(in) == 0 {
+	switch {
+	case len(in) == 0:
 		return "", nil
-	}
-	if len(in) == 1 &&
-		(!unicode.IsDigit(rune(in[0])) || rune(in[0]) != spec) {
+	case len(in) == 1 && (!unicode.IsDigit(rune(in[0])) || rune(in[0]) != spec):
 		return string(in[0]), nil
-	}
-	if unicode.IsDigit(rune(in[0])) ||
-		(spec == rune(in[0]) && len(in) == 2 && unicode.IsDigit(rune(in[1]))) {
+	case unicode.IsDigit(rune(in[0])) || (rune(in[0]) == spec && len(in) == 2 && unicode.IsDigit(rune(in[1]))):
 		return "", ErrInvalidString
 	}
+	var isSpec bool
 	var out strings.Builder
 	for inx, char := range in[:len(in)-1] {
 		next = rune(in[inx+1])
