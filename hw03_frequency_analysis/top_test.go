@@ -1,4 +1,4 @@
-package hw03frequencyanalysis
+package hw03_frequency_analysist
 
 import (
 	"testing"
