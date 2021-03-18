@@ -1,4 +1,4 @@
-package hw03_frequency_analysist
+package hw03_frequency_analysis
 
 import (
 	"regexp"
