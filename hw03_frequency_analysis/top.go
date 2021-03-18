@@ -6,24 +6,33 @@ import (
 	"strings"
 )
 
-type WordContainer struct {
-	Word  string
-	Count int
+var rg = map[string]*regexp.Regexp{
+	"cyrillic":    regexp.MustCompile(`\p{Cyrillic}+`),
+	"punctuation": regexp.MustCompile(`[.,!?@#$%^&*_]`),
 }
 
-type Words struct {
-	container []WordContainer
+type wordContainer struct {
+	word  string
+	count int
 }
 
-func New(size int) *Words {
-	return &Words{
-		container: make([]WordContainer, size),
+type words struct {
+	container  []wordContainer
+	countWords int
+}
+
+func newWords(size int) *words {
+	return &words{
+		container: make([]wordContainer, size),
 	}
 }
 
-func (w Words) FindWord(s string) int {
+func (w words) findWord(s string) int {
+	if rg["punctuation"].Match([]byte(s)) {
+		s = s[:len(s)-1]
+	}
 	for i, v := range w.container {
-		if v.Word == s {
+		if v.word == s {
 			return i
 		}
 	}
@@ -35,61 +44,41 @@ func handleString(in string) []string {
 	return strings.Split(strings.ReplaceAll(tmp, "\t", " "), " ")
 }
 
-func sortSlice(list []string) []string {
-	sort.Strings(list)
-	return list
-}
-
-func uniqueSlice(list []string) []string {
-	keys := make(map[string]bool)
-	var slice []string
-	for _, v := range list {
-		if _, ok := keys[v]; !ok {
-			keys[v] = true
-			slice = append(slice, v)
-		}
-	}
-	return sortSlice(slice)
-}
-
-func unique(m map[int][]string) map[int][]string {
-	for i := range m {
-		m[i] = uniqueSlice(m[i])
-	}
-	return m
-}
-
 func Top10(in string) (out []string) {
-	if len(in) == 0 {
-		return []string{}
+	if len(in) == 0 || !rg["cyrillic"].Match([]byte(in)) {
+		return nil
 	}
-	rg := regexp.MustCompile(`-|\p{Cyrillic}+`)
 	s := handleString(in)
-	words := New(len(s))
+	words := newWords(len(s))
 	for i, v := range s {
-		if rg.Match([]byte(v)) {
-			if position := words.FindWord(v); position != -1 {
-				words.container[position].Count++
+		v = strings.ToLower(v)
+		if rg["cyrillic"].Match([]byte(v)) {
+			if position := words.findWord(v); position != -1 {
+				words.container[position].count++
 			} else {
-				words.container[i].Word = v
-				words.container[i].Count++
+				if rg["punctuation"].Match([]byte(v)) {
+					v = v[:len(v)-1]
+				}
+				words.container[i].word = v
+				words.container[i].count++
 			}
 		}
+		words.countWords++
 	}
-	rate := make(map[int][]string)
+	if words.countWords < 10 {
+		return nil
+	}
 	sort.Slice(words.container, func(i, j int) bool {
-		if words.container[i].Count > words.container[j].Count {
-			rate[words.container[i].Count] = append(rate[words.container[i].Count], words.container[i].Word)
+		if words.container[i].count > words.container[j].count {
 			return true
+		} else if words.container[i].count < words.container[j].count {
+			return false
 		}
-		return false
+		return words.container[i].word < words.container[j].word
 	})
-	uRate := unique(rate)
-	for i := len(words.container); ; i-- {
-		out = append(out, uRate[i]...)
-		if len(out) == 10 {
-			break
-		}
+
+	for i := 0; i < 10; i++ {
+		out = append(out, words.container[i].word)
 	}
 	return
 }
