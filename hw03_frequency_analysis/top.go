@@ -6,79 +6,57 @@ import (
 	"strings"
 )
 
-var rg = map[string]*regexp.Regexp{
-	"cyrillic":    regexp.MustCompile(`\p{Cyrillic}+`),
-	"punctuation": regexp.MustCompile(`[.,!?@#$%^&*_]`),
+type word struct {
+	word string
+	freq int
 }
 
-type wordContainer struct {
-	word  string
-	count int
+var (
+	rg          = regexp.MustCompile(`[a-zA-ZА-Яа-я]+`)
+	punctuation = regexp.MustCompile(`[.,!?]`)
+)
+
+func getWords(s []word) []string {
+	arr := make([]string, 0, len(s))
+	for _, v := range s {
+		arr = append(arr, v.word)
+	}
+	return arr
 }
 
-type words struct {
-	container  []wordContainer
-	countWords int
-}
+func setWords(res map[string]int) (words []word) {
+	for w, f := range res {
+		words = append(words, word{w, f})
+	}
 
-func newWords(size int) *words {
-	return &words{
-		container: make([]wordContainer, size),
-	}
-}
-
-func (w words) findWord(s string) int {
-	if rg["punctuation"].Match([]byte(s)) {
-		s = s[:len(s)-1]
-	}
-	for i, v := range w.container {
-		if v.word == s {
-			return i
-		}
-	}
-	return -1
-}
-
-func handleString(in string) []string {
-	tmp := strings.ReplaceAll(in, "\n", " ")
-	return strings.Split(strings.ReplaceAll(tmp, "\t", " "), " ")
-}
-
-func Top10(in string) (out []string) {
-	if len(in) == 0 || !rg["cyrillic"].Match([]byte(in)) {
-		return nil
-	}
-	s := handleString(in)
-	words := newWords(len(s))
-	for i, v := range s {
-		v = strings.ToLower(v)
-		if rg["cyrillic"].Match([]byte(v)) {
-			if position := words.findWord(v); position != -1 {
-				words.container[position].count++
-			} else {
-				if rg["punctuation"].Match([]byte(v)) {
-					v = v[:len(v)-1]
-				}
-				words.container[i].word = v
-				words.container[i].count++
-			}
-		}
-		words.countWords++
-	}
-	if words.countWords < 10 {
-		return nil
-	}
-	sort.Slice(words.container, func(i, j int) bool {
-		if words.container[i].count > words.container[j].count {
+	sort.Slice(words, func(i, j int) bool {
+		if words[i].freq > words[j].freq {
 			return true
-		} else if words.container[i].count < words.container[j].count {
+		} else if words[i].freq < words[j].freq {
 			return false
 		}
-		return words.container[i].word < words.container[j].word
+		return words[i].word < words[j].word
 	})
-
-	for i := 0; i < 10; i++ {
-		out = append(out, words.container[i].word)
-	}
 	return
+}
+
+func Top10(in string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	res := make(map[string]int)
+	for _, v := range strings.Fields(in) {
+		v = strings.ToLower(v)
+		if punctuation.MatchString(v) {
+			v = v[:len(v)-1]
+		}
+		if rg.MatchString(v) {
+			res[v]++
+		}
+	}
+	words := setWords(res)
+	if len(words) >= 10 {
+		return getWords(words[:10])
+	}
+	return getWords(words)
 }

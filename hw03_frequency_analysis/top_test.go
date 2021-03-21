@@ -44,12 +44,6 @@ func TestTop10(t *testing.T) {
 	t.Run("no words in empty string", func(t *testing.T) {
 		require.Len(t, Top10(""), 0)
 	})
-
-	t.Run("negative tests", func(t *testing.T) {
-		require.Len(t, Top10("Hello world"), 0)
-		require.Len(t, Top10("он знал, а теперь забыл."), 0)
-		require.Len(t, Top10("!@# 243 ( #"), 0)
-	})
 	t.Run("positive test", func(t *testing.T) {
 		expected := []string{
 			"а",         // 8
@@ -64,7 +58,9 @@ func TestTop10(t *testing.T) {
 			"не",        // 4
 		}
 		require.Equal(t, expected, Top10(text))
+		require.Equal(t, []string{"а", "забыл", "знал", "он", "теперь"}, Top10("он знал, а теперь забыл."))
 	})
+
 	t.Run("without repeating words", func(t *testing.T) {
 		expected := []string{
 			"винни-пух",
