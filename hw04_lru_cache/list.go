@@ -90,6 +90,9 @@ func (l list) Back() *Element {
 }
 
 func (l *list) Remove(e *Element) {
+	if e.next == nil && e.prev == nil {
+		return
+	}
 	if e.prev != nil {
 		e.prev.next = e.next
 	}
@@ -106,6 +109,9 @@ func (l *list) Remove(e *Element) {
 }
 
 func (l *list) MoveToFront(e *Element) {
+	if e.next == nil && e.prev == nil {
+		return
+	}
 	l.Remove(e)
 	l.PushFront(e.Value)
 }

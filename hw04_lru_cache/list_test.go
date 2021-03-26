@@ -21,6 +21,15 @@ func TestList(t *testing.T) {
 		require.Equal(t, 1, l.Len())
 		require.Equal(t, 10, l.Front().Value.(int))
 	})
+	t.Run("without element in the list", func(t *testing.T) {
+		l := NewList()
+		l.PushFront(1)
+		l.MoveToFront(&Element{})
+		require.Equal(t, l.Front().Value, 1)
+
+		l.Remove(&Element{})
+		require.Equal(t, l.Len(), 1)
+	})
 	t.Run("complex", func(t *testing.T) {
 		l := NewList()
 		l.PushBack(20)  // [10, 20]
