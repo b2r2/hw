@@ -10,6 +10,7 @@ type cacheItem struct {
 	key   Key
 	value interface{}
 }
+
 type Cache interface {
 	Set(key Key, value interface{}) bool
 	Get(key Key) (interface{}, bool)
