@@ -1,5 +1,6 @@
 package hw04lrucache
 
+// List ...
 type List interface {
 	Len() int
 	Front() *Element
@@ -10,6 +11,7 @@ type List interface {
 	MoveToFront(i *Element)
 }
 
+// Element ...
 type Element struct {
 	Value interface{}
 	next  *Element
@@ -21,10 +23,12 @@ type list struct {
 	len        int
 }
 
+// Prev ...
 func (e Element) Prev() *Element {
 	return e.prev
 }
 
+// Next ...
 func (e Element) Next() *Element {
 	return e.next
 }
@@ -116,6 +120,7 @@ func (l *list) MoveToFront(e *Element) {
 	l.PushFront(e.Value)
 }
 
+// List ...
 func NewList() List {
 	return new(list).init()
 }

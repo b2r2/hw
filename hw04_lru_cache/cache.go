@@ -4,6 +4,7 @@ import (
 	"sync"
 )
 
+// Key ...
 type Key string
 
 type cacheItem struct {
@@ -11,6 +12,7 @@ type cacheItem struct {
 	value interface{}
 }
 
+// Cache ...
 type Cache interface {
 	Set(key Key, value interface{}) bool
 	Get(key Key) (interface{}, bool)
@@ -48,11 +50,11 @@ func (l *lruCache) Get(key Key) (interface{}, bool) {
 	defer l.lock.RUnlock()
 	if e, ok := l.items[key]; ok {
 		return e.Value.(cacheItem).value, ok
-	} else {
-		return nil, ok
 	}
+	return nil, false
 }
 
+// Clear ...
 func (l *lruCache) Clear() {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -60,6 +62,7 @@ func (l *lruCache) Clear() {
 	l.items = make(map[Key]*Element, l.capacity)
 }
 
+// NewCache ...
 func NewCache(capacity int) Cache {
 	return &lruCache{
 		capacity: capacity,
