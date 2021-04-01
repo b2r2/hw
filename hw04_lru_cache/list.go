@@ -102,6 +102,7 @@ func (l *list) init() List {
 	l.head, l.tail = nil, nil
 	return l
 }
+
 func (l *list) insertBackElement(e *Element) *Element {
 	l.tail.next = e
 	e.prev = l.tail
