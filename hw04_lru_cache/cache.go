@@ -28,7 +28,7 @@ type lruCache struct {
 
 // NewCache ...
 func NewCache(capacity int) Cache {
-	if capacity < 1{
+	if capacity < 1 {
 		return nil
 	}
 	return &lruCache{
@@ -73,4 +73,3 @@ func (l *lruCache) Clear() {
 	l.queue = NewList()
 	l.items = make(map[Key]*Element, l.capacity)
 }
-

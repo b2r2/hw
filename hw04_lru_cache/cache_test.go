@@ -61,7 +61,7 @@ func TestCache(t *testing.T) {
 		require.Nil(t, v)
 		require.False(t, ok)
 	})
-	t.Run("clear", func(t *testing.T){
+	t.Run("clear", func(t *testing.T) {
 		c := NewCache(3)
 		for i := 0; i < 10; i++ {
 			c.Set(Key(strconv.Itoa(i)), i)
