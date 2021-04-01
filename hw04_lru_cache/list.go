@@ -18,11 +18,6 @@ type Element struct {
 	prev  *Element
 }
 
-type list struct {
-	head, tail *Element
-	len        int
-}
-
 // Prev ...
 func (e Element) Prev() *Element {
 	return e.prev
@@ -33,9 +28,14 @@ func (e Element) Next() *Element {
 	return e.next
 }
 
-func (l *list) init() List {
-	l.len = 0
-	return l
+type list struct {
+	head, tail *Element
+	len        int
+}
+
+// List ...
+func NewList() List {
+	return new(list).init()
 }
 
 func (l *list) PushFront(v interface{}) *Element {
@@ -50,29 +50,6 @@ func (l *list) PushBack(v interface{}) *Element {
 		return l.insertFirstElement(&Element{Value: v})
 	}
 	return l.insertBackElement(&Element{Value: v})
-}
-
-func (l *list) insertBackElement(e *Element) *Element {
-	l.tail.next = e
-	e.prev = l.tail
-	l.tail = e
-	l.len++
-	return e
-}
-
-func (l *list) insertFrontElement(e *Element) *Element {
-	l.head.prev = e
-	e.next = l.head
-	l.head = e
-	l.len++
-	return e
-}
-
-func (l *list) insertFirstElement(e *Element) *Element {
-	l.head = e
-	l.tail = e
-	l.len++
-	return e
 }
 
 func (l list) Len() int {
@@ -120,7 +97,30 @@ func (l *list) MoveToFront(e *Element) {
 	l.PushFront(e.Value)
 }
 
-// List ...
-func NewList() List {
-	return new(list).init()
+func (l *list) init() List {
+	l.len = 0
+	l.head, l.tail = nil, nil
+	return l
+}
+func (l *list) insertBackElement(e *Element) *Element {
+	l.tail.next = e
+	e.prev = l.tail
+	l.tail = e
+	l.len++
+	return e
+}
+
+func (l *list) insertFrontElement(e *Element) *Element {
+	l.head.prev = e
+	e.next = l.head
+	l.head = e
+	l.len++
+	return e
+}
+
+func (l *list) insertFirstElement(e *Element) *Element {
+	l.head = e
+	l.tail = e
+	l.len++
+	return e
 }

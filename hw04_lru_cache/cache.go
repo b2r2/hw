@@ -26,6 +26,18 @@ type lruCache struct {
 	lock     sync.RWMutex
 }
 
+// NewCache ...
+func NewCache(capacity int) Cache {
+	if capacity < 1{
+		return nil
+	}
+	return &lruCache{
+		capacity: capacity,
+		queue:    NewList(),
+		items:    make(map[Key]*Element, capacity),
+	}
+}
+
 func (l *lruCache) Set(key Key, value interface{}) bool {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -62,11 +74,3 @@ func (l *lruCache) Clear() {
 	l.items = make(map[Key]*Element, l.capacity)
 }
 
-// NewCache ...
-func NewCache(capacity int) Cache {
-	return &lruCache{
-		capacity: capacity,
-		queue:    NewList(),
-		items:    make(map[Key]*Element, capacity),
-	}
-}

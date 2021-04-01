@@ -54,6 +54,18 @@ func TestCache(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			c.Set(Key(strconv.Itoa(i)), i)
 		}
+		for i := 0; i < 10; i++ {
+			c.Get("1")
+		}
+		v, ok := c.Get("1")
+		require.Nil(t, v)
+		require.False(t, ok)
+	})
+	t.Run("clear", func(t *testing.T){
+		c := NewCache(3)
+		for i := 0; i < 10; i++ {
+			c.Set(Key(strconv.Itoa(i)), i)
+		}
 		c.Clear()
 		v, ok := c.Get("1")
 		require.Nil(t, v)
