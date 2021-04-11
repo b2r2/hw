@@ -67,4 +67,32 @@ func TestRun(t *testing.T) {
 		require.Equal(t, runTasksCount, int32(tasksCount), "not all tasks were completed")
 		require.LessOrEqual(t, int64(elapsedTime), int64(sumTime/2), "tasks were run sequentially?")
 	})
+
+	t.Run("negative number errors", func(t *testing.T) {
+		tasksCount := 30
+		tasks := make([]Task, 0, tasksCount)
+
+		var runTasksCount rune
+
+		for i := 0; i < tasksCount; i++ {
+			err := fmt.Errorf("error from task %d", i)
+			taskSleep := time.Millisecond * time.Duration(rand.Intn(100))
+			tasks = append(tasks, func() error {
+				time.Sleep(taskSleep)
+				atomic.AddInt32(&runTasksCount, 1)
+				if i%2 == 0 {
+					return err
+				}
+				return nil
+			})
+		}
+
+		workersCount := 5
+		maxErrorsCount := -1
+
+		err := Run(tasks, workersCount, maxErrorsCount)
+		require.Error(t, err)
+		require.Truef(t, errors.Is(err, ErrErrorsLimitExceeded), "actual err - %v", err)
+	})
 }
+complited
