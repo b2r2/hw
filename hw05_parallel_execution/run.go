@@ -38,6 +38,9 @@ func Run(tasks []Task, n, m int) error {
 	}
 
 	for _, t := range tasks {
+		if atomic.LoadInt32(&errCount) >= int32(m) {
+			break
+		}
 		taskCh <- t
 	}
 	close(taskCh)
