@@ -41,6 +41,9 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 		return err
 	}
 	defer syncClose(r)
+	if _, err := r.Seek(offset, io.SeekStart); err != nil {
+		return err
+	}
 	if w, err = os.Create(toPath); err != nil {
 		if err := os.Mkdir(path.Dir(toPath), os.ModePerm); err != nil {
 			return err
