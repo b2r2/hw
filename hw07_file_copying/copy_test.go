@@ -10,7 +10,7 @@ import (
 func TestCopy(t *testing.T) {
 	t.Run("test copy", func(t *testing.T) {
 		const testdata = "./testdata/input.txt"
-		out := "out/input.txt"
+		out := "out.txt"
 		tests := []struct {
 			name string
 			exp  error
