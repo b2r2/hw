@@ -8,7 +8,7 @@ import (
 )
 
 func TestCopy(t *testing.T) {
-	t.Run("validation", func(t *testing.T) {
+	t.Run("test copy", func(t *testing.T) {
 		const testdata = "./testdata/input.txt"
 		out := "out/input.txt"
 		tests := []struct {
@@ -52,7 +52,7 @@ func TestCopy(t *testing.T) {
 				Copy("/dev/urandom", out, 0, 0),
 			},
 			{
-				"valid data",
+				"with validation data",
 				nil,
 				Copy(testdata, out, 0, 0),
 			},

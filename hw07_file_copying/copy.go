@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 
@@ -34,27 +33,23 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 	if r, err = os.OpenFile(fromPath, os.O_RDONLY, 0o600); err != nil {
 		return err
 	}
+	defer syncClose(r)
 	if _, err := r.Seek(offset, io.SeekStart); err != nil {
-		if e := syncClose(r); e != nil {
-			return fmt.Errorf(err.Error(), e.Error())
-		}
+		return err
 	}
 	if w, err = os.Create(toPath); err != nil {
-		if e := syncClose(r); e != nil {
-			return fmt.Errorf(err.Error(), e.Error())
-		}
+		return err
 	}
+	defer syncClose(w)
 
 	b := pb.Start64(limit)
 	br := b.NewProxyReader(r)
 	defer b.Finish()
 	if _, err := io.CopyN(w, br, limit); err != nil {
-		if e := syncClose(r, w); e != nil {
-			return fmt.Errorf(err.Error(), e.Error())
-		}
+		return err
 	}
 
-	return syncClose(r, w)
+	return nil
 }
 
 func checkValid(fromPath, toPath string, offset, limit int64) (os.FileInfo, error) {
@@ -88,14 +83,12 @@ func checkValid(fromPath, toPath string, offset, limit int64) (os.FileInfo, erro
 	return i, nil
 }
 
-func syncClose(files ...*os.File) error {
-	for _, f := range files {
-		if err := f.Sync(); err != nil {
-			return err
-		}
-		if err := f.Close(); err != nil {
-			return err
-		}
+func syncClose(f *os.File) error {
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
 	}
 	return nil
 }
