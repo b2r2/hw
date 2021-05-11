@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"path"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,59 +17,51 @@ func TestCopy(t *testing.T) {
 			act  error
 		}{
 			{
-				"empty path",
-				ErrEmptyPath,
-				checkValid("", out, 0, 0),
+				"from path is empty",
+				ErrEmptyFromPath,
+				Copy("", out, 0, 0),
 			},
 			{
-				"empty to path",
+				"to path is empty",
 				ErrEmptyToPath,
-				checkValid(testdata, "", 0, 0),
+				Copy(testdata, "", 0, 0),
 			},
 			{
 				"equal paths",
 				ErrEqualPaths,
-				checkValid(testdata, testdata, 0, 0),
+				Copy(testdata, testdata, 0, 0),
 			},
 			{
 				"negative limit",
 				ErrNegativeLimit,
-				checkValid(testdata, out, 0, -1),
+				Copy(testdata, out, 0, -1),
 			},
 			{
 				"negative offset",
 				ErrNegativeOffset,
-				checkValid(testdata, out, -1, 0),
+				Copy(testdata, out, -1, 0),
 			},
 			{
 				"offset exceeds file size",
 				ErrOffsetExceedsFileSize,
-				checkValid(testdata, out, 1<<20, 0),
+				Copy(testdata, out, 1<<20, 0),
 			},
 			{
 				"err unsupported file",
 				ErrUnsupportedFile,
-				checkValid("/dev/urandom", out, 0, 0),
+				Copy("/dev/urandom", out, 0, 0),
 			},
 			{
 				"valid data",
 				nil,
-				checkValid(testdata, out, 0, 0),
+				Copy(testdata, out, 0, 0),
 			},
 		}
 		for _, ts := range tests {
 			require.Equal(t, ts.exp, ts.act, ts.name)
+			if ts.exp == nil {
+				require.Nil(t, os.Remove(out))
+			}
 		}
-	})
-	t.Run("simple copy", func(t *testing.T) {
-		testdata := "./testdata/input.txt"
-		out := "./tmp/out.txt"
-		require.Equal(t, nil, Copy(testdata, out, 0, 0))
-		require.Nil(t, os.RemoveAll(path.Dir(out)))
-	})
-
-	t.Run("invalid data ", func(t *testing.T) {
-		testdata := "./testdata/input.txt"
-		require.Error(t, ErrEqualPaths, Copy(testdata, testdata, 0, 0))
 	})
 }
