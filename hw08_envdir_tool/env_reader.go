@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,11 +26,18 @@ func ReadDir(dir string) (Environment, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(ds) == 0 {
+		return nil, errors.New("empty directory")
+	}
+
 	env := make(Environment, len(ds))
 	for _, i := range ds {
 		n := i.Name()
-		if i.IsDir() || strings.Contains(n, "=") {
-			continue
+		if i.IsDir() {
+			return nil, fmt.Errorf("file %s is a directory", n)
+		}
+		if strings.Contains(n, "=") {
+			return nil, fmt.Errorf("file %s contain %s symbol", n, "=")
 		}
 		v, err := getEnv(filepath.Join(dir, n))
 		if err != nil {
@@ -47,7 +56,7 @@ func getEnv(path string) (EnvValue, error) {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			panic(err)
+			return
 		}
 	}()
 
