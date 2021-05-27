@@ -3,11 +3,10 @@ package hw10programoptimization
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
+	"github.com/valyala/fastjson"
 )
 
 type User struct {
@@ -22,42 +21,24 @@ type User struct {
 
 type DomainStat map[string]int
 
-var ErrDomainEmpty = errors.New("domain received empty")
-
 func GetDomainStat(r io.Reader, domain string) (DomainStat, error) {
 	if domain == "" {
-		return nil, ErrDomainEmpty
+		return nil, errors.New("domain received empty")
 	}
-	u, err := getUsers(r)
-	if err != nil {
-		return nil, fmt.Errorf("get users error: %w", err)
-	}
-	return countDomains(u, domain)
+	return countDomains(r, domain)
 }
 
-type users [100_000]User
-
-func getUsers(r io.Reader) (users, error) {
+func countDomains(r io.Reader, domain string) (DomainStat, error) {
 	scanner := bufio.NewScanner(r)
-	scanner.Split(bufio.ScanLines)
-	json := jsoniter.ConfigFastest
-	var user User
-	var result users
-	for i := 0; scanner.Scan(); i++ {
-		if err := json.Unmarshal(scanner.Bytes(), &user); err != nil {
-			return result, err
-		}
-		result[i] = user
-	}
-	return result, nil
-}
-
-func countDomains(u users, domain string) (DomainStat, error) {
 	result := make(DomainStat)
-	for _, user := range u {
-		if strings.Contains(user.Email, domain) {
-			result[strings.ToLower(strings.SplitN(user.Email, "@", 2)[1])]++
+	for scanner.Scan() {
+		email := fastjson.GetString(scanner.Bytes(), "Email")
+		if strings.Contains(email, domain) {
+			result[strings.ToLower(strings.SplitN(email, "@", 2)[1])]++
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
