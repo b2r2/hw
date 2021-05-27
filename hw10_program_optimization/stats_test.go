@@ -4,6 +4,7 @@ package hw10programoptimization
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,5 +36,15 @@ func TestGetDomainStat(t *testing.T) {
 		result, err := GetDomainStat(bytes.NewBufferString(data), "unknown")
 		require.NoError(t, err)
 		require.Equal(t, DomainStat{}, result)
+	})
+	t.Run("empty domain", func(t *testing.T) {
+		result, err := GetDomainStat(bytes.NewBufferString(data), "")
+		require.Nil(t, result)
+		require.True(t, errors.Is(err, ErrDomainEmpty))
+	})
+
+	t.Run("broken data", func(t *testing.T) {
+		_, err := GetDomainStat(bytes.NewBufferString(`{lfdsjk}`), "com")
+		require.Error(t, err)
 	})
 }
