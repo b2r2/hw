@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
 )
@@ -18,7 +17,7 @@ func main() {
 	}
 	env, err := ReadDir(os.Args[1])
 	if err != nil {
-		log.Fatal(fmt.Errorf("%v: %w", ErrNotEnvVariables, err))
+		log.Fatal(ErrNotEnvVariables, err)
 	}
 
 	os.Exit(RunCmd(os.Args[2:], env))
