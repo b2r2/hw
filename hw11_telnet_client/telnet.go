@@ -46,12 +46,10 @@ func (t *Telnet) Connect() error {
 		return err
 	}
 	t.conn = conn
-	fmt.Println("...Connected to", t.address)
 	return nil
 }
 
 func (t *Telnet) Close() error {
-	fmt.Println("Bye-bye")
 	return t.conn.Close()
 }
 
