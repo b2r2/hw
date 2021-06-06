@@ -9,18 +9,15 @@ import (
 	"time"
 )
 
-var timeout string
+var timeout time.Duration
 
 var (
 	ErrNotEnoughArguments = errors.New("not enough arguments, usage: command --timeout[optional] host port")
 	ErrTooMuchArguments   = errors.New("too much arguments, usage: command --timeout[optional] host port")
 )
 
-func init() {
-	flag.StringVar(&timeout, "timeout", "10s", "timeout to connect to the server (by default 10s)")
-}
-
 func main() {
+	flag.DurationVar(&timeout, "timeout", time.Second*10, "timeout to connect to the server (by default 10s")
 	flag.Parse()
 
 	if flag.NArg() < 2 {
@@ -28,10 +25,6 @@ func main() {
 	}
 	if flag.NArg() > 3 {
 		log.Fatalln(ErrTooMuchArguments)
-	}
-	timeout, err := time.ParseDuration(timeout)
-	if err != nil {
-		log.Fatalln(err)
 	}
 
 	args := flag.Args()

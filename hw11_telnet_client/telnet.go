@@ -2,9 +2,9 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -17,99 +17,95 @@ const (
 )
 
 type TelnetClient interface {
-	Connect() error
-	io.Closer
-	Send() error
-	Receive() error
 	Run() error
+	close() error
+	connect() error
+	send() error
+	receive() error
 }
 
-type Telnet struct {
+type telnet struct {
 	conn    net.Conn
-	ctx     context.Context
-	cancel  context.CancelFunc
 	address string
 	timeout time.Duration
 	in      io.ReadCloser
 	out     io.Writer
 }
 
-func (t *Telnet) Connect() error {
-	dialer := net.Dialer{}
-
-	ctx, cancel := context.WithTimeout(context.Background(), t.timeout)
-	t.ctx = ctx
-	t.cancel = cancel
-	conn, err := dialer.DialContext(t.ctx, tcp, t.address)
+func (t *telnet) connect() error {
+	conn, err := net.DialTimeout(tcp, t.address, t.timeout)
 	if err != nil {
-		cancel()
 		return err
 	}
 	t.conn = conn
 	return nil
 }
 
-func (t *Telnet) Close() error {
+func (t *telnet) close() error {
+	if t.conn == nil {
+		return nil
+	}
 	return t.conn.Close()
 }
 
-func (t *Telnet) Send() error {
+func (t *telnet) send() error {
+	if t.conn == nil {
+		return nil
+	}
 	scanner := bufio.NewScanner(t.in)
-	for scanner.Scan() {
-		msg := append(scanner.Bytes(), newLine)
-		if _, err := t.conn.Write(msg); err != nil {
-			return err
+	for {
+		if scanner.Scan() {
+			msg := append(scanner.Bytes(), newLine)
+			if _, err := t.conn.Write(msg); err != nil {
+				return err
+			}
+		} else {
+			return scanner.Err()
 		}
 	}
-	return scanner.Err()
 }
 
-func (t *Telnet) Receive() error {
-	scanner := bufio.NewScanner(t.conn)
-	for scanner.Scan() {
-		msg := append(scanner.Bytes(), newLine)
-		if _, err := t.out.Write(msg); err != nil {
-			return err
-		}
+func (t *telnet) receive() error {
+	if t.conn == nil {
+		return nil
 	}
-	return nil
+	_, err := io.Copy(t.out, t.conn)
+	return err
 }
 
-func (t *Telnet) Run() error {
-	if err := t.Connect(); err != nil {
+func (t *telnet) Run() error {
+	if err := t.connect(); err != nil {
 		return err
 	}
 	defer func() {
-		if err := t.Close(); err != nil {
-			return
+		if err := t.close(); err != nil {
+			log.Fatal(err)
 		}
 	}()
 
-	go func() {
-		if err := t.Receive(); err != nil {
-			fmt.Println(fmt.Errorf("cannot receive message %w", err))
-		}
-	}()
-	go func() {
-		if err := t.Send(); err != nil {
-			fmt.Println(fmt.Errorf("cannot send message %w", err))
-		}
-	}()
+	errs := make(chan error, 1)
+	go func() { errs <- t.receive() }()
+	go func() { errs <- t.send() }()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
 
 	select {
 	case <-sigCh:
-		fmt.Println(fmt.Errorf("...Connection was closed by peer"))
-		t.cancel()
-	case <-t.ctx.Done():
+		if _, err := fmt.Fprint(os.Stderr, "...Connection was closed by peer"); err != nil {
+			log.Println(err)
+		}
+		signal.Stop(sigCh)
 		close(sigCh)
+	case err := <-errs:
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	return nil
 }
 
 func NewTelnetClient(address string, timeout time.Duration, in io.ReadCloser, out io.Writer) TelnetClient {
-	return &Telnet{address: address, timeout: timeout, in: in, out: out}
+	return &telnet{address: address, timeout: timeout, in: in, out: out}
 }
