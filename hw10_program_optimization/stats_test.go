@@ -36,4 +36,9 @@ func TestGetDomainStat(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, DomainStat{}, result)
 	})
+	t.Run("empty domain", func(t *testing.T) {
+		result, err := GetDomainStat(bytes.NewBufferString(data), "")
+		require.Nil(t, result)
+		require.Error(t, err)
+	})
 }
