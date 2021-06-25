@@ -1,5 +1,15 @@
 [logger]
 level = "INFO"
+filepath = "./configs/config.toml"
 
-# TODO
-# ...
+[server]
+host = "localhost"
+port = "8080"
+
+[storage]
+host = "localhost"
+port = "5432"
+database = "calendar"
+ssl = "disable"
+is_mem = false
+

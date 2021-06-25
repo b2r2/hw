@@ -3,21 +3,27 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/app"
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/logger"
-	internalhttp "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/server/http"
-	memorystorage "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/storage/memory"
+	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/app"
+	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/config"
+	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/logger"
+	httpserver "github.com/b2r2/hw/hw12_13_14_15_calendar/internal/server/http"
+	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/storage"
+	memorystorage "github.com/b2r2/hw/hw12_13_14_15_calendar/internal/storage/memory"
+	sqlstorage "github.com/b2r2/hw/hw12_13_14_15_calendar/internal/storage/sql"
 )
 
 var configFile string
 
 func init() {
-	flag.StringVar(&configFile, "config", "/etc/calendar/config.toml", "Path to configuration file")
+	flag.StringVar(&configFile, "config", "./configs/config.toml", "Path to configuration file")
 }
 
 func main() {
@@ -25,45 +31,73 @@ func main() {
 
 	if flag.Arg(0) == "version" {
 		printVersion()
-		return
+		os.Exit(0)
 	}
 
-	config := NewConfig()
-	logg := logger.New(config.Logger.Level)
+	mainContext, cancel := context.WithCancel(context.Background())
 
-	storage := memorystorage.New()
-	calendar := app.New(logg, storage)
-
-	server := internalhttp.NewServer(calendar)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
+	go func(cancel context.CancelFunc) {
 		signals := make(chan os.Signal, 1)
-		signal.Notify(signals, syscall.SIGINT, syscall.SIGHUP)
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-signals:
-		}
-
-		signal.Stop(signals)
+		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+		<-signals
 		cancel()
+	}(cancel)
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-		defer cancel()
+	conf, err := config.NewConfig(configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	logg, err := logger.New(conf.Logger.Level, conf.Logger.Path, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	logg.Info("calendar app started")
 
-		if err := server.Stop(ctx); err != nil {
-			logg.Error("failed to stop http server: " + err.Error())
+	var db storage.Storage
+	if conf.Storage.IsMem {
+		db = memorystorage.New(logg)
+	} else {
+		db = sqlstorage.New(logg)
+	}
+
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		conf.Storage.Host,
+		conf.Storage.Port,
+		"calendar",
+		"calendar",
+		conf.Storage.Database,
+		conf.Storage.SSL)
+
+	if err := db.Connect(mainContext, dsn); err != nil {
+		log.Fatal(err)
+	}
+
+	calendar := app.New(logg, db)
+	server := httpserver.NewServer(calendar, logg)
+
+	go func(cancel context.CancelFunc) {
+		if err := server.Start(net.JoinHostPort(conf.Server.Host, conf.Server.Port)); err != nil {
+			cancel()
+			log.Fatal(err)
 		}
-	}()
+	}(cancel)
 
-	logg.Info("calendar is running...")
+	logg.Info("calendar app is running")
 
-	if err := server.Start(ctx); err != nil {
-		logg.Error("failed to start http server: " + err.Error())
-		cancel()
-		os.Exit(1) //nolint:gocritic
+	<-mainContext.Done()
+
+	logg.Info("stopping calendar app")
+	cancel()
+
+	ctx, newCancel := context.WithTimeout(context.Background(), time.Second*5)
+
+	if err := db.Close(ctx); err != nil {
+		newCancel()
+		log.Fatal(err)
+	}
+
+	if err := server.Stop(ctx); err != nil {
+		newCancel()
+		log.Fatal(err)
 	}
 }
