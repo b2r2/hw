@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"net"
 	"sync"
@@ -30,14 +31,14 @@ func TestTelnetClient(t *testing.T) {
 			require.NoError(t, err)
 
 			client := NewTelnetClient(l.Addr().String(), timeout, ioutil.NopCloser(in), out)
-			require.NoError(t, client.Connect())
-			defer func() { require.NoError(t, client.Close()) }()
+			require.NoError(t, client.connect())
+			defer func() { require.NoError(t, client.close()) }()
 
 			in.WriteString("hello\n")
-			err = client.Send()
+			err = client.send()
 			require.NoError(t, err)
 
-			err = client.Receive()
+			err = client.receive()
 			require.NoError(t, err)
 			require.Equal(t, "world\n", out.String())
 		}()
@@ -61,5 +62,21 @@ func TestTelnetClient(t *testing.T) {
 		}()
 
 		wg.Wait()
+	})
+	t.Run("invalid address", func(t *testing.T) {
+		timeout, err := time.ParseDuration("1s")
+		require.NoError(t, err)
+		var in io.ReadCloser
+		var out io.Writer
+		err = NewTelnetClient("google.com:", timeout, in, out).Run()
+		require.Error(t, err)
+	})
+	t.Run("missing address", func(t *testing.T) {
+		timeout, err := time.ParseDuration("1s")
+		require.NoError(t, err)
+		var in io.ReadCloser
+		var out io.Writer
+		err = NewTelnetClient("", timeout, in, out).Run()
+		require.Error(t, err)
 	})
 }
