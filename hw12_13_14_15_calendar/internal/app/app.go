@@ -2,25 +2,119 @@ package app
 
 import (
 	"context"
+	"errors"
+	"time"
+
+	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/logger"
+	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/storage"
 )
 
-type App struct { // TODO
+var (
+	ErrNoUserID    = errors.New("no user id of the event")
+	ErrEmptyTitle  = errors.New("no title of the event")
+	ErrStartInPast = errors.New("start time of the event in the past")
+	ErrDateBusy    = errors.New("this time is already occupied by another event")
+)
+
+type App interface {
+	CreateEvent(ctx context.Context, userID int, title, desc string, start, stop time.Time, notif *time.Duration) (id int, err error)
+	UpdateEvent(ctx context.Context, id int, change storage.Event) error
+	DeleteEvent(ctx context.Context, id int) error
+	GetEvent(ctx context.Context, id int) (*storage.Event, error)
+	ListAllEvents(ctx context.Context) ([]storage.Event, error)
+	ListDayEvents(ctx context.Context, date time.Time) ([]storage.Event, error)
+	ListWeekEvents(ctx context.Context, date time.Time) ([]storage.Event, error)
+	ListMonthEvents(ctx context.Context, date time.Time) ([]storage.Event, error)
 }
 
-type Logger interface { // TODO
+type app struct {
+	logger  logger.Logger
+	storage storage.Storage
 }
 
-type Storage interface { // TODO
+func New(logger logger.Logger, storage storage.Storage) App {
+	return &app{
+		logger,
+		storage,
+	}
 }
 
-func New(logger Logger, storage Storage) *App {
-	return &App{}
+func (a *app) CreateEvent(ctx context.Context, userID int, title, desc string, start, stop time.Time, notif *time.Duration) (id int, err error) {
+	if userID == 0 {
+		err = ErrNoUserID
+		return
+	}
+	if title == "" {
+		err = ErrEmptyTitle
+		return
+	}
+	if start.After(stop) {
+		start, stop = stop, start
+	}
+	if time.Now().After(start) {
+		err = ErrStartInPast
+		return
+	}
+	isBusy, err := a.storage.IsTimeBusy(ctx, start, stop, 0)
+	if err != nil {
+		return
+	}
+	if isBusy {
+		err = ErrDateBusy
+		return
+	}
+
+	return a.storage.Create(ctx, storage.Event{
+		Title:        title,
+		Start:        start,
+		Stop:         stop,
+		Description:  desc,
+		UserID:       userID,
+		Notification: notif,
+	})
 }
 
-func (a *App) CreateEvent(ctx context.Context, id, title string) error {
-	// TODO
-	return nil
-	// return a.storage.CreateEvent(storage.Event{ID: id, Title: title})
+func (a *app) UpdateEvent(ctx context.Context, id int, change storage.Event) error {
+	if change.Title == "" {
+		return ErrEmptyTitle
+	}
+	if change.Start.After(change.Stop) {
+		change.Start, change.Stop = change.Stop, change.Start
+	}
+	if time.Now().After(change.Start) {
+		return ErrStartInPast
+	}
+	isBusy, err := a.storage.IsTimeBusy(ctx, change.Start, change.Stop, id)
+	if err != nil {
+		return err
+	}
+	if isBusy {
+		return ErrDateBusy
+	}
+
+	return a.storage.Update(ctx, id, change)
 }
 
-// TODO
+func (a *app) DeleteEvent(ctx context.Context, id int) error {
+	return a.storage.Delete(ctx, id)
+}
+
+func (a *app) GetEvent(ctx context.Context, id int) (*storage.Event, error) {
+	return a.storage.Get(ctx, id)
+}
+
+func (a *app) ListAllEvents(ctx context.Context) ([]storage.Event, error) {
+	return a.storage.ListAll(ctx)
+}
+
+func (a *app) ListDayEvents(ctx context.Context, date time.Time) ([]storage.Event, error) {
+	return a.storage.ListDay(ctx, date)
+}
+
+func (a *app) ListWeekEvents(ctx context.Context, date time.Time) ([]storage.Event, error) {
+	return a.storage.ListWeek(ctx, date)
+}
+
+func (a *app) ListMonthEvents(ctx context.Context, date time.Time) ([]storage.Event, error) {
+	return a.storage.ListMonth(ctx, date)
+}
