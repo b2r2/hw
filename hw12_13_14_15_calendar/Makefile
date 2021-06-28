@@ -24,10 +24,22 @@ version: build
 test:
 	go test -v -race ./...
 
+up:
+	goose -dir migrations postgres "user=calendar password=calendar dbname=calendar sslmode=disable" up
+
+down:
+	goose -dir migrations postgres "user=calendar password=calendar dbname=calendar sslmode=disable" down
+
 install-lint-deps:
 	(which golangci-lint > /dev/null) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.40.1
 
 lint: install-lint-deps
 	golangci-lint run ./...
 
-.PHONY: build run build-img run-img version test lint
+generate:
+	go generate internal/server/grpc/server.go
+
+fix:
+	golangci-lint run --fix
+
+.PHONY: build run build-img run-img version test lint up down generate fix

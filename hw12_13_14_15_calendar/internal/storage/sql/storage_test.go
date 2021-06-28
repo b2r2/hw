@@ -15,9 +15,10 @@ import (
 )
 
 func TestStorage(t *testing.T) {
-	t.Skip()
+	ctx := context.Background()
 	log := logrus.New()
-	events := sqlstorage.New(log)
+	events, err := sqlstorage.New(log, ctx, "host=localhost port=5432 user=calendar password=calendar dbname=calendar sslmode=disable")
+	require.NoError(t, err)
 	require.NotNil(t, events)
 
 	event1 := storage.Event{
@@ -32,7 +33,7 @@ func TestStorage(t *testing.T) {
 		Title:       "Second",
 		ID:          2,
 		Description: "bla-bla",
-		UserID:      1,
+		UserID:      2,
 		Start:       time.Date(2021, 0o6, 15, 22, 15, 21, 0, time.UTC),
 		Stop:        time.Date(2021, 0o6, 16, 11, 31, 5, 0, time.UTC),
 	}
@@ -40,39 +41,38 @@ func TestStorage(t *testing.T) {
 		Title:       "Second Update",
 		ID:          2,
 		Description: "bla-bla update",
-		UserID:      1,
+		UserID:      2,
 		Start:       time.Date(2021, 0o6, 15, 22, 15, 21, 0, time.UTC),
 		Stop:        time.Date(2021, 0o6, 16, 11, 31, 5, 0, time.UTC),
 	}
+	_ = event2Update
 
-	ctx := context.Background()
-
-	id, err := events.Create(ctx, event1)
+	id, err := events.Create(ctx, &event1)
 	require.NoError(t, err)
-	require.Equal(t, id, 1)
+	require.Equal(t, id, int32(1))
 
-	id, err = events.Create(ctx, event2)
+	id, err = events.Create(ctx, &event2)
 	require.NoError(t, err)
-	require.Equal(t, id, uint64(1))
+	require.Equal(t, id, int32(2))
 
 	allEvents, err := events.ListAll(ctx)
 	require.NoError(t, err)
 	require.Len(t, allEvents, 2)
 
-	err = events.Update(ctx, 1, event2Update)
+	err = events.Update(ctx, int32(1), &event2Update)
 	require.NoError(t, err)
 
-	event, err := events.Get(ctx, 1)
+	event, err := events.Get(ctx, int32(1))
 	require.NoError(t, err)
-	require.Equal(t, event.ID, 1)
+	require.Equal(t, int32(1), event.ID)
 
-	event, err = events.Get(ctx, 123)
+	event, err = events.Get(ctx, int32(123))
 	require.Nil(t, event)
-	require.ErrorIs(t, storage.ErrNotExistsEvent, err)
+	require.Error(t, err)
 
-	id, err = events.Create(ctx, storage.Event{})
+	id, err = events.Create(ctx, &storage.Event{})
 	require.NoError(t, err)
-	require.Equal(t, id, 2)
+	require.Equal(t, int32(3), id)
 
 	err = events.DeleteAll(ctx)
 	require.NoError(t, err)

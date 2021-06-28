@@ -17,14 +17,15 @@ var (
 )
 
 type App interface {
-	CreateEvent(ctx context.Context, userID int, title, desc string, start, stop time.Time, notif *time.Duration) (id int, err error)
-	UpdateEvent(ctx context.Context, id int, change storage.Event) error
-	DeleteEvent(ctx context.Context, id int) error
-	GetEvent(ctx context.Context, id int) (*storage.Event, error)
-	ListAllEvents(ctx context.Context) ([]storage.Event, error)
-	ListDayEvents(ctx context.Context, date time.Time) ([]storage.Event, error)
-	ListWeekEvents(ctx context.Context, date time.Time) ([]storage.Event, error)
-	ListMonthEvents(ctx context.Context, date time.Time) ([]storage.Event, error)
+	CreateEvent(ctx context.Context, event *storage.Event) (id int32, err error)
+	UpdateEvent(ctx context.Context, id int32, change *storage.Event) error
+	DeleteEvent(ctx context.Context, id int32) error
+	DeleteAllEvent(ctx context.Context) error
+	GetEvent(ctx context.Context, id int32) (*storage.Event, error)
+	ListAllEvents(ctx context.Context) ([]*storage.Event, error)
+	ListDayEvents(ctx context.Context, date time.Time) ([]*storage.Event, error)
+	ListWeekEvents(ctx context.Context, date time.Time) ([]*storage.Event, error)
+	ListMonthEvents(ctx context.Context, date time.Time) ([]*storage.Event, error)
 }
 
 type app struct {
@@ -39,23 +40,23 @@ func New(logger logger.Logger, storage storage.Storage) App {
 	}
 }
 
-func (a *app) CreateEvent(ctx context.Context, userID int, title, desc string, start, stop time.Time, notif *time.Duration) (id int, err error) {
-	if userID == 0 {
+func (a *app) CreateEvent(ctx context.Context, event *storage.Event) (id int32, err error) {
+	if event.UserID == 0 {
 		err = ErrNoUserID
 		return
 	}
-	if title == "" {
+	if event.Title == "" {
 		err = ErrEmptyTitle
 		return
 	}
-	if start.After(stop) {
-		start, stop = stop, start
+	if event.Start.After(event.Stop) {
+		event.Start, event.Stop = event.Stop, event.Start
 	}
-	if time.Now().After(start) {
+	if time.Now().After(event.Start) {
 		err = ErrStartInPast
 		return
 	}
-	isBusy, err := a.storage.IsTimeBusy(ctx, start, stop, 0)
+	isBusy, err := a.storage.IsTimeBusy(ctx, event.Start, event.Stop, 0)
 	if err != nil {
 		return
 	}
@@ -64,17 +65,10 @@ func (a *app) CreateEvent(ctx context.Context, userID int, title, desc string, s
 		return
 	}
 
-	return a.storage.Create(ctx, storage.Event{
-		Title:        title,
-		Start:        start,
-		Stop:         stop,
-		Description:  desc,
-		UserID:       userID,
-		Notification: notif,
-	})
+	return a.storage.Create(ctx, event)
 }
 
-func (a *app) UpdateEvent(ctx context.Context, id int, change storage.Event) error {
+func (a *app) UpdateEvent(ctx context.Context, id int32, change *storage.Event) error {
 	if change.Title == "" {
 		return ErrEmptyTitle
 	}
@@ -95,26 +89,30 @@ func (a *app) UpdateEvent(ctx context.Context, id int, change storage.Event) err
 	return a.storage.Update(ctx, id, change)
 }
 
-func (a *app) DeleteEvent(ctx context.Context, id int) error {
+func (a *app) DeleteEvent(ctx context.Context, id int32) error {
 	return a.storage.Delete(ctx, id)
 }
 
-func (a *app) GetEvent(ctx context.Context, id int) (*storage.Event, error) {
+func (a *app) DeleteAllEvent(ctx context.Context) error {
+	return a.storage.DeleteAll(ctx)
+}
+
+func (a *app) GetEvent(ctx context.Context, id int32) (*storage.Event, error) {
 	return a.storage.Get(ctx, id)
 }
 
-func (a *app) ListAllEvents(ctx context.Context) ([]storage.Event, error) {
+func (a *app) ListAllEvents(ctx context.Context) ([]*storage.Event, error) {
 	return a.storage.ListAll(ctx)
 }
 
-func (a *app) ListDayEvents(ctx context.Context, date time.Time) ([]storage.Event, error) {
+func (a *app) ListDayEvents(ctx context.Context, date time.Time) ([]*storage.Event, error) {
 	return a.storage.ListDay(ctx, date)
 }
 
-func (a *app) ListWeekEvents(ctx context.Context, date time.Time) ([]storage.Event, error) {
+func (a *app) ListWeekEvents(ctx context.Context, date time.Time) ([]*storage.Event, error) {
 	return a.storage.ListWeek(ctx, date)
 }
 
-func (a *app) ListMonthEvents(ctx context.Context, date time.Time) ([]storage.Event, error) {
+func (a *app) ListMonthEvents(ctx context.Context, date time.Time) ([]*storage.Event, error) {
 	return a.storage.ListMonth(ctx, date)
 }

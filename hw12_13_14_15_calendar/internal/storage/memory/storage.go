@@ -13,26 +13,22 @@ import (
 type store struct {
 	log     logger.Logger
 	mu      sync.Mutex
-	counter int
-	data    map[int]storage.Event
-}
-
-func New(log logger.Logger) storage.Storage {
-	return &store{
-		data: make(map[int]storage.Event),
-		log:  log,
-	}
-}
-
-func (s *store) Connect(_ context.Context, _ string) error {
-	return nil
+	counter int32
+	data    map[int32]storage.Event
 }
 
 func (s *store) Close(_ context.Context) error {
 	return nil
 }
 
-func (s *store) Create(_ context.Context, event storage.Event) (int, error) {
+func New(log logger.Logger) storage.Storage {
+	return &store{
+		data: make(map[int32]storage.Event),
+		log:  log,
+	}
+}
+
+func (s *store) Create(_ context.Context, event *storage.Event) (int32, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -51,7 +47,7 @@ func (s *store) Create(_ context.Context, event storage.Event) (int, error) {
 	return id, nil
 }
 
-func (s *store) Update(_ context.Context, id int, change storage.Event) error {
+func (s *store) Update(_ context.Context, id int32, change *storage.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -71,11 +67,15 @@ func (s *store) Update(_ context.Context, id int, change storage.Event) error {
 	return nil
 }
 
-func (s *store) Delete(_ context.Context, id int) error {
+func (s *store) Delete(_ context.Context, id int32) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	delete(s.data, id)
+	if _, ok := s.data[id]; ok {
+		delete(s.data, id)
+	} else {
+		return storage.ErrNotExistsEvent
+	}
 	s.log.Traceln("deleted event:\n", id)
 	return nil
 }
@@ -84,13 +84,13 @@ func (s *store) DeleteAll(_ context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.data = make(map[int]storage.Event)
+	s.data = make(map[int32]storage.Event)
 
 	s.log.Traceln("deleted all events")
 	return nil
 }
 
-func (s *store) Get(_ context.Context, id int) (*storage.Event, error) {
+func (s *store) Get(_ context.Context, id int32) (*storage.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -100,13 +100,13 @@ func (s *store) Get(_ context.Context, id int) (*storage.Event, error) {
 	return nil, storage.ErrNotExistsEvent
 }
 
-func (s *store) ListAll(_ context.Context) ([]storage.Event, error) {
+func (s *store) ListAll(_ context.Context) ([]*storage.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	result := make([]storage.Event, 0, len(s.data))
+	result := make([]*storage.Event, 0, len(s.data))
 	for _, event := range s.data {
-		result = append(result, event)
+		result = append(result, &event)
 	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Start.Before(result[j].Start)
@@ -114,16 +114,16 @@ func (s *store) ListAll(_ context.Context) ([]storage.Event, error) {
 	return result, nil
 }
 
-func (s *store) ListDay(_ context.Context, date time.Time) ([]storage.Event, error) {
+func (s *store) ListDay(_ context.Context, date time.Time) ([]*storage.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var result []storage.Event
+	result := make([]*storage.Event, 0, len(s.data))
 	year, month, day := date.Date()
 	for _, event := range s.data {
 		eventYear, eventMonth, eventDay := event.Start.Date()
 		if eventYear == year && eventMonth == month && eventDay == day {
-			result = append(result, event)
+			result = append(result, &event)
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
@@ -132,16 +132,16 @@ func (s *store) ListDay(_ context.Context, date time.Time) ([]storage.Event, err
 	return result, nil
 }
 
-func (s *store) ListWeek(_ context.Context, date time.Time) ([]storage.Event, error) {
+func (s *store) ListWeek(_ context.Context, date time.Time) ([]*storage.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var result []storage.Event
+	result := make([]*storage.Event, 0, len(s.data))
 	year, week := date.ISOWeek()
 	for _, event := range s.data {
 		eventYear, eventWeek := event.Start.ISOWeek()
 		if eventYear == year && eventWeek == week {
-			result = append(result, event)
+			result = append(result, &event)
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
@@ -150,16 +150,16 @@ func (s *store) ListWeek(_ context.Context, date time.Time) ([]storage.Event, er
 	return result, nil
 }
 
-func (s *store) ListMonth(_ context.Context, date time.Time) ([]storage.Event, error) {
+func (s *store) ListMonth(_ context.Context, date time.Time) ([]*storage.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var result []storage.Event
+	var result []*storage.Event
 	year, month, _ := date.Date()
 	for _, event := range s.data {
 		eventYear, eventMonth, _ := event.Start.Date()
 		if eventYear == year && eventMonth == month {
-			result = append(result, event)
+			result = append(result, &event)
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
@@ -168,7 +168,7 @@ func (s *store) ListMonth(_ context.Context, date time.Time) ([]storage.Event, e
 	return result, nil
 }
 
-func (s *store) IsTimeBusy(_ context.Context, start, stop time.Time, excludeID int) (bool, error) {
+func (s *store) IsTimeBusy(_ context.Context, start, stop time.Time, excludeID int32) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -180,7 +180,7 @@ func (s *store) IsTimeBusy(_ context.Context, start, stop time.Time, excludeID i
 	return false, nil
 }
 
-func (s *store) newID() int {
+func (s *store) newID() int32 {
 	s.counter++
 	return s.counter
 }
