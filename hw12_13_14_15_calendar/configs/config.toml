@@ -1,10 +1,10 @@
 [logger]
 level = "INFO"
-filepath = "./configs/config.toml"
+file_path = "./logs/log.out"
 
 [server]
-host = "localhost"
-port = "8080"
+addr_http = ":8088"
+addr_grpc = ":8081"
 
 [storage]
 host = "localhost"

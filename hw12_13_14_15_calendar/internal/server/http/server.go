@@ -2,111 +2,104 @@ package httpserver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/app"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
+
 	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/logger"
-	"github.com/gorilla/mux"
+
+	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/app"
 )
 
-type Server interface {
-	Start(addr string) error
-	Stop(ctx context.Context) error
+type Server struct {
+	log    logger.Logger
+	router chi.Router
+	addr   string
+	server *http.Server
 }
 
-func NewServer(app app.App, logger logger.Logger) Server {
-	return newServer(app, logger)
+type EventHandler struct {
+	log logger.Logger
+	app app.App
 }
 
-type server struct {
-	app    app.App
-	logger logger.Logger
-	srv    *http.Server
-	router *mux.Router
+func NewHandler(log logger.Logger, app app.App) *EventHandler {
+	return &EventHandler{app: app, log: log}
 }
 
-func newServer(app app.App, logger logger.Logger) Server {
-	s := &server{
-		app:    app,
-		logger: logger,
-		router: mux.NewRouter(),
+func NewRouter(log logger.Logger, h *EventHandler, v interface{}) *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(cors.AllowAll().Handler)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.StripSlashes)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Timeout(20 * time.Second))
+	r.NotFound(notFoundHandler)
+	r.Get("/hello", helloHandler)
+	r.Get("/version", versionHandler(v))
+	r.Route("/api", func(r chi.Router) {
+		r.Group(func(r chi.Router) {
+			r.Use(loggingMiddleware(log))
+			r.Route("/v1", func(r chi.Router) {
+				r.Post("/create", h.Create)
+				r.Post("/update/{id}", h.Update)
+				r.Get("/deleteAll", h.DeleteAll)
+				r.Get("/delete/{id}", h.Delete)
+				r.Get("/listAll", h.ListALl)
+				r.Get("/listMonth", h.ListMonth)
+				r.Get("/listWeek", h.ListWeek)
+				r.Get("/listDay", h.ListDay)
+				r.Get("/get/{id}", h.Get)
+			})
+		})
+	})
+	return r
+}
+
+func NewServer(log logger.Logger, r chi.Router, addr string) *Server {
+	s := &Server{}
+	s.log = log
+	s.router = r
+	s.addr = addr
+	s.server = &http.Server{
+		Addr:              s.addr,
+		Handler:           s.router,
+		ReadTimeout:       20 * time.Second,
+		ReadHeaderTimeout: 20 * time.Second,
+		WriteTimeout:      20 * time.Second,
 	}
-	s.configureRouter()
 	return s
 }
 
-func (s *server) Start(addr string) error {
-	s.srv = &http.Server{
-		Addr:    addr,
-		Handler: s.router,
-	}
-	err := s.srv.ListenAndServe()
-	if errors.Is(err, http.ErrServerClosed) {
-		return nil
-	}
-	return err
-}
-
-func (s *server) Stop(ctx context.Context) error {
-	if err := s.srv.Shutdown(ctx); err != nil {
-		return fmt.Errorf("server shutdown: %w", err)
+func (s *Server) Start() error {
+	s.log.Infoln("server started")
+	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
 	}
 	return nil
 }
 
-func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.router.ServeHTTP(w, r)
+func (s *Server) Stop(ctx context.Context) error {
+	s.log.Infoln("server stopped")
+	return s.server.Shutdown(ctx)
 }
 
-func (s *server) configureRouter() {
-	s.router.Use(s.loggingMiddleware)
-	s.router.HandleFunc("/hello", s.handleHello).Methods("GET")
+func notFoundHandler(w http.ResponseWriter, _ *http.Request) {
+	http.Error(w, "404 page not found,", http.StatusNotFound)
 }
 
-func (s *server) loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		rw := &responseWriter{w, http.StatusOK}
-		next.ServeHTTP(rw, r)
-
-		s.logger.Info(
-			fmt.Sprintf("%s %s %s %s %d %s %s",
-				requestAddr(r),
-				r.Method,
-				r.RequestURI,
-				r.Proto,
-				rw.code,
-				latency(start),
-				userAgent(r),
-			))
-	})
+func helloHandler(w http.ResponseWriter, _ *http.Request) {
+	_ = json.NewEncoder(w).Encode("Hello world")
 }
 
-func requestAddr(r *http.Request) string {
-	return strings.Split(r.RemoteAddr, ":")[0]
-}
-
-func userAgent(r *http.Request) string {
-	userAgents := r.Header["User-Agent"]
-	if len(userAgents) > 0 {
-		return "\"" + userAgents[0] + "\""
-	}
-	return ""
-}
-
-func latency(start time.Time) string {
-	return fmt.Sprintf("%dms", time.Since(start).Milliseconds())
-}
-
-func (s *server) handleHello(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte("Hello, world\n"))
-	if err != nil {
-		s.logger.Error(fmt.Errorf("http write: %w", err))
+func versionHandler(v interface{}) func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(v)
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/logger"
@@ -15,36 +14,34 @@ import (
 )
 
 type store struct {
-	db   *sql.DB
-	log  logger.Logger
-	mu   sync.Mutex
-	data map[int]storage.Event
+	db  *sql.DB
+	log logger.Logger
 }
 
-func New(log logger.Logger) storage.Storage {
-	return &store{
-		log:  log,
-		data: make(map[int]storage.Event),
-	}
-}
-
-func (s *store) Connect(ctx context.Context, connect string) error {
+func New(log logger.Logger, ctx context.Context, connect string) (storage.Storage, error) {
 	db, err := sql.Open("pgx", connect)
 	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
+	if err = db.PingContext(ctx); err != nil {
+		return nil, err
+	}
+
+	var s store
+	s.log = log
 	s.db = db
-	return s.db.PingContext(ctx)
+
+	return &s, nil
 }
 
 func (s *store) Close(_ context.Context) error {
-	return s.db.Close()
+	if s.db != nil {
+		return s.db.Close()
+	}
+	return nil
 }
 
-func (s *store) Create(ctx context.Context, event storage.Event) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *store) Create(ctx context.Context, event *storage.Event) (int32, error) {
 	var query string
 	var args []interface{}
 	if event.Notification != nil {
@@ -62,16 +59,16 @@ func (s *store) Create(ctx context.Context, event storage.Event) (int, error) {
 		`
 		args = []interface{}{event.Title, event.Start, event.Stop, event.Description, event.UserID}
 	}
-	var id int
+	var id int32
 	err := s.db.QueryRowContext(ctx, query, args...).Scan(&id)
 	if err != nil {
-		return 0, fmt.Errorf("db exec: %w", err)
+		return -1, fmt.Errorf("db exec: %w", err)
 	}
 	s.log.Traceln("create new event:", id)
 	return id, nil
 }
 
-func (s *store) Update(ctx context.Context, id int, change storage.Event) error {
+func (s *store) Update(ctx context.Context, id int32, change *storage.Event) error {
 	var query string
 	var args []interface{}
 	if change.Notification != nil {
@@ -112,22 +109,25 @@ func (s *store) Update(ctx context.Context, id int, change storage.Event) error 
 	return nil
 }
 
-func (s *store) Delete(ctx context.Context, id int) error {
-	query := `
-		DELETE FROM event WHERE event_id = $1
-	`
-	_, err := s.db.ExecContext(ctx, query, id)
+func (s *store) Delete(ctx context.Context, id int32) error {
+	query := `DELETE FROM event WHERE event_id = $1`
+	r, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("db exec: %w", err)
+	}
+	count, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return storage.ErrNotExistsEvent
 	}
 	s.log.Traceln("delete event:", id)
 	return nil
 }
 
 func (s *store) DeleteAll(ctx context.Context) error {
-	query := `
-		DELETE FROM event
-	`
+	query := `DELETE FROM event`
 	_, err := s.db.ExecContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("db exec: %w", err)
@@ -136,20 +136,25 @@ func (s *store) DeleteAll(ctx context.Context) error {
 	return nil
 }
 
-func (s *store) Get(ctx context.Context, id int) (*storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *store) Get(ctx context.Context, id int32) (*storage.Event, error) {
+	query := `SELECT event_id, title, start, stop, description, user_id, notification FROM event WHERE event_id=$1`
 
-	if event, ok := s.data[id]; ok {
-		return &event, nil
+	var event storage.Event
+	if err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&event.ID,
+		&event.Title,
+		&event.Start,
+		&event.Stop,
+		&event.Description,
+		&event.UserID,
+		&event.Notification); err != nil {
+		return nil, err
 	}
-	return nil, storage.ErrNotExistsEvent
+
+	return &event, nil
 }
 
-func (s *store) ListAll(ctx context.Context) ([]storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *store) ListAll(ctx context.Context) ([]*storage.Event, error) {
 	query := `
 		SELECT event_id, title, start, stop, description, user_id, notification
 		FROM event
@@ -158,10 +163,7 @@ func (s *store) ListAll(ctx context.Context) ([]storage.Event, error) {
 	return s.queryList(ctx, query)
 }
 
-func (s *store) ListDay(ctx context.Context, date time.Time) ([]storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *store) ListDay(ctx context.Context, date time.Time) ([]*storage.Event, error) {
 	year, month, day := date.Date()
 	query := `
 		SELECT event_id, title, start, stop, description, user_id, notification
@@ -172,10 +174,7 @@ func (s *store) ListDay(ctx context.Context, date time.Time) ([]storage.Event, e
 	return s.queryList(ctx, query, year, month, day)
 }
 
-func (s *store) ListWeek(ctx context.Context, date time.Time) ([]storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *store) ListWeek(ctx context.Context, date time.Time) ([]*storage.Event, error) {
 	year, week := date.ISOWeek()
 	query := `
 		SELECT event_id, title, start, stop, description, user_id, notification
@@ -186,10 +185,7 @@ func (s *store) ListWeek(ctx context.Context, date time.Time) ([]storage.Event, 
 	return s.queryList(ctx, query, year, week)
 }
 
-func (s *store) ListMonth(ctx context.Context, date time.Time) ([]storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *store) ListMonth(ctx context.Context, date time.Time) ([]*storage.Event, error) {
 	year, month, _ := date.Date()
 	query := `
 		SELECT event_id, title, start, stop, description, user_id, notification
@@ -200,10 +196,7 @@ func (s *store) ListMonth(ctx context.Context, date time.Time) ([]storage.Event,
 	return s.queryList(ctx, query, year, month)
 }
 
-func (s *store) queryList(ctx context.Context, query string, args ...interface{}) (result []storage.Event, resultErr error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *store) queryList(ctx context.Context, query string, args ...interface{}) (result []*storage.Event, resultErr error) {
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("db query: %w", err)
@@ -234,7 +227,7 @@ func (s *store) queryList(ctx context.Context, query string, args ...interface{}
 		if notification.Valid {
 			event.Notification = (*time.Duration)(&notification.Int64)
 		}
-		result = append(result, event)
+		result = append(result, &event)
 	}
 	if err := rows.Err(); err != nil {
 		resultErr = fmt.Errorf("db rows: %w", err)
@@ -243,10 +236,7 @@ func (s *store) queryList(ctx context.Context, query string, args ...interface{}
 	return
 }
 
-func (s *store) IsTimeBusy(ctx context.Context, start, stop time.Time, excludeID int) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *store) IsTimeBusy(ctx context.Context, start, stop time.Time, excludeID int32) (bool, error) {
 	var count int
 	query := `
 		SELECT Count(*) AS count

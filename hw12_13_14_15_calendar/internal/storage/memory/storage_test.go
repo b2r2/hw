@@ -42,18 +42,18 @@ func TestStorage(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		id, err := events.Create(ctx, event1)
+		id, err := events.Create(ctx, &event1)
 		require.NoError(t, err)
-		require.Equal(t, id, 1)
+		require.Equal(t, id, int32(1))
 
-		id, err = events.Create(ctx, event2)
+		id, err = events.Create(ctx, &event2)
 		require.NoError(t, err)
-		require.Equal(t, id, 2)
+		require.Equal(t, id, int32(2))
 
 		allEvents, _ := events.ListAll(ctx)
 		require.Len(t, allEvents, 2)
 
-		err = events.Update(ctx, 2, event2Update)
+		err = events.Update(ctx, 2, &event2Update)
 		require.NoError(t, err)
 
 		allEvents, err = events.ListAll(ctx)
@@ -62,7 +62,7 @@ func TestStorage(t *testing.T) {
 
 		event, err := events.Get(ctx, 1)
 		require.NoError(t, err)
-		require.Equal(t, event.ID, 1)
+		require.Equal(t, event.ID, int32(1))
 		require.Equal(t, event.Title, "First")
 
 		_, err = events.Get(ctx, 5)
@@ -71,9 +71,9 @@ func TestStorage(t *testing.T) {
 		err = events.Delete(ctx, 1)
 		require.NoError(t, err)
 
-		id, err = events.Create(ctx, storage.Event{})
+		id, err = events.Create(ctx, &storage.Event{})
 		require.NoError(t, err)
-		require.Equal(t, id, 3)
+		require.Equal(t, id, int32(3))
 	})
 	t.Run("concurrent", func(t *testing.T) {
 		l := 53
@@ -84,7 +84,7 @@ func TestStorage(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, err := events.Create(context.Background(), storage.Event{})
+				_, err := events.Create(context.Background(), &storage.Event{})
 				require.NoError(t, err)
 			}()
 		}

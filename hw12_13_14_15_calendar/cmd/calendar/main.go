@@ -5,15 +5,18 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/service"
+	pb "github.com/b2r2/hw/hw12_13_14_15_calendar/pkg/service"
+
 	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/app"
 	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/config"
 	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/logger"
+	grpcserver "github.com/b2r2/hw/hw12_13_14_15_calendar/internal/server/grpc"
 	httpserver "github.com/b2r2/hw/hw12_13_14_15_calendar/internal/server/http"
 	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/storage"
 	memorystorage "github.com/b2r2/hw/hw12_13_14_15_calendar/internal/storage/memory"
@@ -23,7 +26,7 @@ import (
 var configFile string
 
 func init() {
-	flag.StringVar(&configFile, "config", "./configs/config.toml", "Path to configuration file")
+	flag.StringVar(&configFile, "config", "", "Path to configuration file")
 }
 
 func main() {
@@ -57,28 +60,38 @@ func main() {
 	if conf.Storage.IsMem {
 		db = memorystorage.New(logg)
 	} else {
-		db = sqlstorage.New(logg)
-	}
+		dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+			conf.Storage.Host,
+			conf.Storage.Port,
+			"calendar",
+			"calendar",
+			conf.Storage.Database,
+			conf.Storage.SSL)
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		conf.Storage.Host,
-		conf.Storage.Port,
-		"calendar",
-		"calendar",
-		conf.Storage.Database,
-		conf.Storage.SSL)
-
-	if err := db.Connect(mainContext, dsn); err != nil {
-		log.Fatal(err)
+		if db, err = sqlstorage.New(logg, mainContext, dsn); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	calendar := app.New(logg, db)
-	server := httpserver.NewServer(calendar, logg)
+	handler := httpserver.NewHandler(logg, calendar)
+	router := httpserver.NewRouter(logg, handler, version)
+	server := httpserver.NewServer(logg, router, conf.Server.AddrHTTP)
+	gserver := grpcserver.NewGRPCServer(logg)
+	s := service.NewService(logg, calendar)
+	pb.RegisterCalendarServer(gserver, s)
 
 	go func(cancel context.CancelFunc) {
-		if err := server.Start(net.JoinHostPort(conf.Server.Host, conf.Server.Port)); err != nil {
+		if err := server.Start(); err != nil {
 			cancel()
-			log.Fatal(err)
+			logg.Fatal(err)
+		}
+	}(cancel)
+
+	go func(cancel context.CancelFunc) {
+		if err := gserver.Start(conf.Server.AddrGRPC); err != nil {
+			cancel()
+			logg.Fatal(err)
 		}
 	}(cancel)
 
@@ -100,4 +113,8 @@ func main() {
 		newCancel()
 		log.Fatal(err)
 	}
+
+	gserver.Stop()
+
+	logg.Info("application stopped")
 }

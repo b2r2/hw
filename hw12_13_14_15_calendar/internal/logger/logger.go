@@ -11,19 +11,29 @@ import (
 
 type Logger interface {
 	Debug(args ...interface{})
+	Infoln(args ...interface{})
 	Info(args ...interface{})
 	Warn(args ...interface{})
-	Error(args ...interface{})
+	Errorln(args ...interface{})
 	Fatal(args ...interface{})
 	Traceln(args ...interface{})
+	WithField(key string, value interface{}) *logrus.Entry
 }
 
 type logger struct {
 	logger *logrus.Logger
 }
 
+func (l logger) WithField(key string, value interface{}) *logrus.Entry {
+	return l.logger.WithField(key, value)
+}
+
 func (l logger) Traceln(args ...interface{}) {
 	l.logger.Traceln(args...)
+}
+
+func (l logger) Infoln(args ...interface{}) {
+	l.logger.Infoln(args...)
 }
 
 func (l logger) Info(args ...interface{}) {
@@ -34,8 +44,8 @@ func (l logger) Debug(args ...interface{}) {
 	l.logger.Debug(args...)
 }
 
-func (l logger) Error(args ...interface{}) {
-	l.logger.Error(args...)
+func (l logger) Errorln(args ...interface{}) {
+	l.logger.Errorln(args...)
 }
 
 func (l logger) Fatal(args ...interface{}) {
@@ -51,7 +61,11 @@ func New(level, filename string, out io.Writer) (Logger, error) {
 
 	if out != nil {
 		log.SetOutput(out)
-	} else if filename != "" {
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+
+	if filename != "" && out != nil {
 		path, err := filepath.Abs(filename)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open logfile: %w", err)
