@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// go generate: protoc -I="../../../api" go_out="../../../pkg/service" go-grpc_out="../../../pkg/service"
+//go:generate protoc -I=../../../api/ ../../../api/events.proto --go_out=../../../pkg/service --go-grpc_out=../../../pkg/service
 
 type grpcServer struct {
 	log    logger.Logger

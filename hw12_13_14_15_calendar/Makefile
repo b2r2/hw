@@ -37,7 +37,7 @@ lint: install-lint-deps
 	golangci-lint run ./...
 
 generate:
-	go generate internal/server/grpc/server.go
+	go generate ./...
 
 fix:
 	golangci-lint run --fix

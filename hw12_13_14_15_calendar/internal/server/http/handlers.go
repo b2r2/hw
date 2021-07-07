@@ -50,7 +50,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeOkResponse(w, ID{ID: id})
+	writeOkResponse(w, ID{ID: int32(id)})
 }
 
 func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -254,16 +254,16 @@ func parseEvent(e *storage.Event, r *http.Request) error {
 	return nil
 }
 
-func parseIDEvent(r *http.Request) (int32, error) {
+func parseIDEvent(r *http.Request) (int, error) {
 	strId := chi.URLParam(r, "id")
 	if strId == "" {
-		return -1, ErrEventID
+		return 0, ErrEventID
 	}
 	id, err := strconv.Atoi(strId)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
-	return int32(id), nil
+	return id, nil
 }
 
 func parseDateEvent(r *http.Request) (time.Time, error) {

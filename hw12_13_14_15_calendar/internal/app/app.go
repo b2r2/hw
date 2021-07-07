@@ -17,11 +17,11 @@ var (
 )
 
 type App interface {
-	CreateEvent(ctx context.Context, event *storage.Event) (id int32, err error)
-	UpdateEvent(ctx context.Context, id int32, change *storage.Event) error
-	DeleteEvent(ctx context.Context, id int32) error
+	CreateEvent(ctx context.Context, event *storage.Event) (id int, err error)
+	UpdateEvent(ctx context.Context, id int, change *storage.Event) error
+	DeleteEvent(ctx context.Context, id int) error
 	DeleteAllEvent(ctx context.Context) error
-	GetEvent(ctx context.Context, id int32) (*storage.Event, error)
+	GetEvent(ctx context.Context, id int) (*storage.Event, error)
 	ListAllEvents(ctx context.Context) ([]*storage.Event, error)
 	ListDayEvents(ctx context.Context, date time.Time) ([]*storage.Event, error)
 	ListWeekEvents(ctx context.Context, date time.Time) ([]*storage.Event, error)
@@ -40,7 +40,7 @@ func New(logger logger.Logger, storage storage.Storage) App {
 	}
 }
 
-func (a *app) CreateEvent(ctx context.Context, event *storage.Event) (id int32, err error) {
+func (a *app) CreateEvent(ctx context.Context, event *storage.Event) (id int, err error) {
 	if event.UserID == 0 {
 		err = ErrNoUserID
 		return
@@ -68,7 +68,7 @@ func (a *app) CreateEvent(ctx context.Context, event *storage.Event) (id int32, 
 	return a.storage.Create(ctx, event)
 }
 
-func (a *app) UpdateEvent(ctx context.Context, id int32, change *storage.Event) error {
+func (a *app) UpdateEvent(ctx context.Context, id int, change *storage.Event) error {
 	if change.Title == "" {
 		return ErrEmptyTitle
 	}
@@ -89,7 +89,7 @@ func (a *app) UpdateEvent(ctx context.Context, id int32, change *storage.Event) 
 	return a.storage.Update(ctx, id, change)
 }
 
-func (a *app) DeleteEvent(ctx context.Context, id int32) error {
+func (a *app) DeleteEvent(ctx context.Context, id int) error {
 	return a.storage.Delete(ctx, id)
 }
 
@@ -97,7 +97,7 @@ func (a *app) DeleteAllEvent(ctx context.Context) error {
 	return a.storage.DeleteAll(ctx)
 }
 
-func (a *app) GetEvent(ctx context.Context, id int32) (*storage.Event, error) {
+func (a *app) GetEvent(ctx context.Context, id int) (*storage.Event, error) {
 	return a.storage.Get(ctx, id)
 }
 

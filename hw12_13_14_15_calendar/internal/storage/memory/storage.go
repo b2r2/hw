@@ -13,8 +13,8 @@ import (
 type store struct {
 	log     logger.Logger
 	mu      sync.Mutex
-	counter int32
-	data    map[int32]storage.Event
+	counter int
+	data    map[int]storage.Event
 }
 
 func (s *store) Close(_ context.Context) error {
@@ -23,12 +23,12 @@ func (s *store) Close(_ context.Context) error {
 
 func New(log logger.Logger) storage.Storage {
 	return &store{
-		data: make(map[int32]storage.Event),
+		data: make(map[int]storage.Event),
 		log:  log,
 	}
 }
 
-func (s *store) Create(_ context.Context, event *storage.Event) (int32, error) {
+func (s *store) Create(_ context.Context, event *storage.Event) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -47,7 +47,7 @@ func (s *store) Create(_ context.Context, event *storage.Event) (int32, error) {
 	return id, nil
 }
 
-func (s *store) Update(_ context.Context, id int32, change *storage.Event) error {
+func (s *store) Update(_ context.Context, id int, change *storage.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -67,7 +67,7 @@ func (s *store) Update(_ context.Context, id int32, change *storage.Event) error
 	return nil
 }
 
-func (s *store) Delete(_ context.Context, id int32) error {
+func (s *store) Delete(_ context.Context, id int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -84,13 +84,13 @@ func (s *store) DeleteAll(_ context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.data = make(map[int32]storage.Event)
+	s.data = make(map[int]storage.Event)
 
 	s.log.Traceln("deleted all events")
 	return nil
 }
 
-func (s *store) Get(_ context.Context, id int32) (*storage.Event, error) {
+func (s *store) Get(_ context.Context, id int) (*storage.Event, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -168,7 +168,7 @@ func (s *store) ListMonth(_ context.Context, date time.Time) ([]*storage.Event, 
 	return result, nil
 }
 
-func (s *store) IsTimeBusy(_ context.Context, start, stop time.Time, excludeID int32) (bool, error) {
+func (s *store) IsTimeBusy(_ context.Context, start, stop time.Time, excludeID int) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -180,7 +180,7 @@ func (s *store) IsTimeBusy(_ context.Context, start, stop time.Time, excludeID i
 	return false, nil
 }
 
-func (s *store) newID() int32 {
+func (s *store) newID() int {
 	s.counter++
 	return s.counter
 }

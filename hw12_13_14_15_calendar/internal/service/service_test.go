@@ -59,28 +59,28 @@ func TestService(t *testing.T) {
 	require.NoError(t, err)
 
 	var id int32 = 1
-	res, err := client.Create(ctx, newEvent(id, time.Now().Add(time.Minute)))
+	res, err := client.Create(ctx, &pb.CreateRequest{Event: newEvent(id, time.Now().Add(time.Minute))})
 	require.NoError(t, err)
-	require.Equal(t, res.Id, int32(1))
+	require.Equal(t, res.GetEventID().GetId(), int32(1))
 
 	id++
-	e := newEvent(id, time.Now().Add(time.Hour))
-	e.Notification = nil
+	e := &pb.CreateRequest{Event: newEvent(id, time.Now().Add(time.Hour))}
+	e.Event.Notification = nil
 
 	res, err = client.Create(ctx, e)
 	require.NoError(t, err)
-	require.Equal(t, res.Id, int32(2))
+	require.Equal(t, res.GetEventID().GetId(), int32(2))
 
-	getEvent, err := client.Get(ctx, &pb.EventID{Id: e.GetId()})
+	getEvent, err := client.Get(ctx, &pb.GetRequest{EventID: &pb.EventID{Id: e.GetEvent().GetId()}})
 	require.NoError(t, err)
-	require.Equal(t, id, getEvent.GetId())
+	require.Equal(t, id, getEvent.GetEvent().GetId())
 
-	e.Description = "updated"
-	_, err = client.Update(ctx, e)
+	e.Event.Description = "updated"
+	_, err = client.Update(ctx, &pb.UpdateRequest{Event: e.Event})
 	require.NoError(t, err)
-	getEvent, err = client.Get(ctx, &pb.EventID{Id: e.GetId()})
+	getEvent, err = client.Get(ctx, &pb.GetRequest{EventID: &pb.EventID{Id: e.GetEvent().GetId()}})
 	require.NoError(t, err)
-	require.Equal(t, "updated", getEvent.GetDescription())
+	require.Equal(t, "updated", getEvent.GetEvent().GetDescription())
 
 	_, err = client.DeleteAll(ctx, &emptypb.Empty{})
 	require.NoError(t, err)

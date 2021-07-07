@@ -137,7 +137,7 @@ func TestHandler(t *testing.T) {
 
 func newEvent(id int, t time.Time) storage.Event {
 	return storage.Event{
-		ID:           int32(id),
+		ID:           id,
 		Title:        "event",
 		Start:        t,
 		Stop:         t.Add(time.Hour * 15),
