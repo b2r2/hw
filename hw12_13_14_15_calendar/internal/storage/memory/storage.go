@@ -12,7 +12,7 @@ import (
 
 type store struct {
 	log     logger.Logger
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	counter int
 	data    map[int]storage.Event
 }
@@ -35,13 +35,13 @@ func (s *store) Create(_ context.Context, event *storage.Event) (int, error) {
 	id := s.newID()
 	event.ID = id
 	s.data[id] = storage.Event{
-		ID:           id,
-		Title:        event.Title,
-		Start:        event.Start,
-		Stop:         event.Stop,
-		Description:  event.Description,
-		UserID:       event.UserID,
-		Notification: event.Notification,
+		ID:               id,
+		Title:            event.Title,
+		Start:            event.Start,
+		Stop:             event.Stop,
+		Description:      event.Description,
+		UserID:           event.UserID,
+		NotificationTime: event.NotificationTime,
 	}
 	s.log.Traceln("create new event:", id)
 	return id, nil
@@ -60,7 +60,7 @@ func (s *store) Update(_ context.Context, id int, change *storage.Event) error {
 	event.Start = change.Start
 	event.Stop = change.Stop
 	event.Description = change.Description
-	event.Notification = change.Notification
+	event.NotificationTime = change.NotificationTime
 	s.data[id] = event
 	s.log.Traceln("update event:", id)
 
@@ -91,8 +91,8 @@ func (s *store) DeleteAll(_ context.Context) error {
 }
 
 func (s *store) Get(_ context.Context, id int) (*storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	if event, ok := s.data[id]; ok {
 		return &event, nil
@@ -101,8 +101,8 @@ func (s *store) Get(_ context.Context, id int) (*storage.Event, error) {
 }
 
 func (s *store) ListAll(_ context.Context) ([]*storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	result := make([]*storage.Event, 0, len(s.data))
 	for _, event := range s.data {
@@ -115,8 +115,8 @@ func (s *store) ListAll(_ context.Context) ([]*storage.Event, error) {
 }
 
 func (s *store) ListDay(_ context.Context, date time.Time) ([]*storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	result := make([]*storage.Event, 0, len(s.data))
 	year, month, day := date.Date()
@@ -133,8 +133,8 @@ func (s *store) ListDay(_ context.Context, date time.Time) ([]*storage.Event, er
 }
 
 func (s *store) ListWeek(_ context.Context, date time.Time) ([]*storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	result := make([]*storage.Event, 0, len(s.data))
 	year, week := date.ISOWeek()
@@ -151,8 +151,8 @@ func (s *store) ListWeek(_ context.Context, date time.Time) ([]*storage.Event, e
 }
 
 func (s *store) ListMonth(_ context.Context, date time.Time) ([]*storage.Event, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	var result []*storage.Event
 	year, month, _ := date.Date()
@@ -169,8 +169,8 @@ func (s *store) ListMonth(_ context.Context, date time.Time) ([]*storage.Event, 
 }
 
 func (s *store) IsTimeBusy(_ context.Context, start, stop time.Time, excludeID int) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	for _, event := range s.data {
 		if event.ID != excludeID && event.Start.Before(stop) && event.Stop.After(start) {
@@ -178,6 +178,18 @@ func (s *store) IsTimeBusy(_ context.Context, start, stop time.Time, excludeID i
 		}
 	}
 	return false, nil
+}
+
+func (s *store) ListNotifyEvents(_ context.Context) (events []*storage.Event, err error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, event := range s.data {
+		if time.Until(event.Start) < *event.NotificationTime {
+			events = append(events, &event)
+		}
+	}
+	return events, err
 }
 
 func (s *store) newID() int {

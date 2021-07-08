@@ -137,12 +137,12 @@ func TestHandler(t *testing.T) {
 
 func newEvent(id int, t time.Time) storage.Event {
 	return storage.Event{
-		ID:           id,
-		Title:        "event",
-		Start:        t,
-		Stop:         t.Add(time.Hour * 15),
-		Description:  "some desc",
-		UserID:       int32(id),
-		Notification: nil,
+		ID:               id,
+		Title:            "event",
+		Start:            t,
+		Stop:             t.Add(time.Hour * 15),
+		Description:      "some desc",
+		UserID:           int32(id),
+		NotificationTime: nil,
 	}
 }

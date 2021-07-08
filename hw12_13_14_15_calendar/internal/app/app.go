@@ -26,6 +26,7 @@ type App interface {
 	ListDayEvents(ctx context.Context, date time.Time) ([]*storage.Event, error)
 	ListWeekEvents(ctx context.Context, date time.Time) ([]*storage.Event, error)
 	ListMonthEvents(ctx context.Context, date time.Time) ([]*storage.Event, error)
+	ListNotifyEvents(ctx context.Context) ([]*storage.Event, error)
 }
 
 type app struct {
@@ -115,4 +116,8 @@ func (a *app) ListWeekEvents(ctx context.Context, date time.Time) ([]*storage.Ev
 
 func (a *app) ListMonthEvents(ctx context.Context, date time.Time) ([]*storage.Event, error) {
 	return a.storage.ListMonth(ctx, date)
+}
+
+func (a *app) ListNotifyEvents(ctx context.Context) ([]*storage.Event, error) {
+	return a.storage.ListNotifyEvents(ctx)
 }

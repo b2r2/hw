@@ -139,13 +139,13 @@ func (s *Service) ListMonth(ctx context.Context, date *timestamppb.Timestamp) (*
 func convertPb2Event(event *pb.Event) *storage.Event {
 	duration := event.GetNotification().AsDuration()
 	return &storage.Event{
-		ID:           int(event.GetId()),
-		Title:        event.GetTitle(),
-		Start:        event.GetStart().AsTime(),
-		Stop:         event.GetStop().AsTime(),
-		Description:  event.GetDescription(),
-		UserID:       event.GetUserId(),
-		Notification: &duration,
+		ID:               int(event.GetId()),
+		Title:            event.GetTitle(),
+		Start:            event.GetStart().AsTime(),
+		Stop:             event.GetStop().AsTime(),
+		Description:      event.GetDescription(),
+		UserID:           event.GetUserId(),
+		NotificationTime: &duration,
 	}
 }
 
@@ -157,6 +157,6 @@ func convertEvent2Pb(event *storage.Event) *pb.Event {
 		Stop:         timestamppb.New(event.Stop),
 		Description:  event.Description,
 		UserId:       event.UserID,
-		Notification: durationpb.New(*event.Notification),
+		Notification: durationpb.New(*event.NotificationTime),
 	}
 }
