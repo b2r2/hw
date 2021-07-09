@@ -17,7 +17,7 @@ type Client struct {
 	queue amqp.Queue
 }
 
-var retry int
+const retry = 5
 
 func New(l logger.Logger, dsn string, ttl int) (*Client, error) {
 	conn, err := amqp.Dial(dsn)
@@ -48,7 +48,7 @@ func New(l logger.Logger, dsn string, ttl int) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Notify(events []*storage.Event) {
+func (c *Client) Notify(events []*storage.Event, errCh chan<- error) {
 	for _, event := range events {
 		msg, err := event.GetNotification().Encode()
 		if err != nil {
@@ -67,6 +67,7 @@ func (c *Client) Notify(events []*storage.Event) {
 				},
 			); err != nil {
 				c.log.Errorln("failed to publish message:", err)
+				errCh <- err
 				continue
 			}
 			c.log.Infoln("send notification on", event.ID, ":", event.Title)

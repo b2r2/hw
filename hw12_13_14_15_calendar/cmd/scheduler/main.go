@@ -74,7 +74,9 @@ func main() {
 		}
 	}
 
+	errCh := make(chan error)
 	go func() {
+		defer close(errCh)
 		for {
 			select {
 			case <-mainContext.Done():
@@ -84,7 +86,10 @@ func main() {
 				if err != nil {
 					logg.Errorln("failed to retrieve notification events:", err)
 				}
-				rabbit.Notify(events)
+				rabbit.Notify(events, errCh)
+			case err := <-errCh:
+				logg.Errorln(err)
+				cancel()
 			}
 		}
 	}()

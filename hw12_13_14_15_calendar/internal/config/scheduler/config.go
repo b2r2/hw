@@ -55,7 +55,7 @@ func (c *Config) validate() error {
 	if c.RabbitMQ.DSN == "" {
 		return ErrRMQ
 	}
-	if c.RabbitMQ.TTL == 0 {
+	if c.RabbitMQ.TTL <= 0 {
 		return ErrTTL
 	}
 	return nil
