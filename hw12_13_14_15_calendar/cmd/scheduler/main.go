@@ -49,13 +49,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	rabbit, err := rmq.New(logg, c.RabbitMQ.DSN, c.RabbitMQ.TTL)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	scheduler := time.NewTicker(c.Scheduler.Duration.Duration)
-	defer scheduler.Stop()
+	delay := time.NewTicker(c.Scheduler.Duration.Duration)
+	defer delay.Stop()
 
 	var db storage.Storage
 	if c.Storage.IsMem {
@@ -73,28 +68,13 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-
-	errCh := make(chan error)
-	go func() {
-		defer close(errCh)
-		for {
-			select {
-			case <-mainContext.Done():
-				return
-			case <-scheduler.C:
-				events, err := db.ListNotifyEvents(mainContext)
-				if err != nil {
-					logg.Errorln("failed to retrieve notification events:", err)
-				}
-				rabbit.Notify(events, errCh)
-			case err := <-errCh:
-				logg.Errorln(err)
-				cancel()
-			}
-		}
-	}()
-
 	logg.Info("scheduler running")
+
+	scheduler := rmq.NewScheduler(logg, db, delay)
+
+	if err := scheduler.Start(mainContext, c.RabbitMQ.DSN, "event", c.RabbitMQ.TTL); err != nil {
+		log.Fatal(err)
+	}
 
 	<-mainContext.Done()
 
@@ -105,8 +85,6 @@ func main() {
 		stop()
 		log.Fatal(err)
 	}
-	if err := rabbit.Close(); err != nil {
-		stop()
-		log.Fatal(err)
-	}
+
+	logg.Info("scheduler stopped")
 }

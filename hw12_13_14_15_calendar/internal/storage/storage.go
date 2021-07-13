@@ -1,9 +1,7 @@
 package storage
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -56,15 +54,6 @@ type Notification struct {
 	Title     string    `json:"title"`
 	EventTime time.Time `json:"event_time"`
 	Owner     int32     `json:"owner"`
-}
-
-func (n *Notification) Encode() ([]byte, error) {
-	var b bytes.Buffer
-	err := json.NewEncoder(&b).Encode(n)
-	if err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
 }
 
 func (n *Notification) String() string {

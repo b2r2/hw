@@ -2,107 +2,62 @@ package rmq
 
 import (
 	"context"
-	"fmt"
+	"time"
 
 	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/storage"
 
 	"github.com/b2r2/hw/hw12_13_14_15_calendar/internal/logger"
-	"github.com/streadway/amqp"
 )
 
-type Client struct {
-	log   logger.Logger
-	conn  *amqp.Connection
-	ch    *amqp.Channel
-	queue amqp.Queue
+type Scheduler struct {
+	log     logger.Logger
+	storage storage.Storage
+	ticker  *time.Ticker
 }
 
-const retry = 5
-
-func New(l logger.Logger, dsn string, ttl int) (*Client, error) {
-	conn, err := amqp.Dial(dsn)
-	if err != nil {
-		return nil, fmt.Errorf("error rmq connection: %w", err)
-	}
-
-	ch, err := conn.Channel()
-	if err != nil {
-		return nil, fmt.Errorf("failed to make rmq channel: %w", err)
-	}
-
-	q, err := ch.QueueDeclare("notification",
-		false,
-		false,
-		false,
-		false,
-		amqp.Table{"x-message-ttl": ttl})
-	if err != nil {
-		return nil, fmt.Errorf("failed to make rmq queue: %w", err)
-	}
-
-	return &Client{
-		log:   l,
-		conn:  conn,
-		ch:    ch,
-		queue: q,
-	}, nil
+func NewScheduler(log logger.Logger, storage storage.Storage, ticker *time.Ticker) *Scheduler {
+	return &Scheduler{log, storage, ticker}
 }
 
-func (c *Client) Notify(events []*storage.Event, errCh chan<- error) {
-	for _, event := range events {
-		msg, err := event.GetNotification().Encode()
-		if err != nil {
-			c.log.Errorln("failed to encoding message:", err)
-			continue
-		}
+type Message struct {
+	ctx  context.Context
+	Data []byte
+}
 
-		for i := 0; i < retry; i++ {
-			if err := c.ch.Publish("",
-				c.queue.Name,
-				false,
-				false,
-				amqp.Publishing{
-					ContentType: "application/json",
-					Body:        msg,
-				},
-			); err != nil {
-				c.log.Errorln("failed to publish message:", err)
-				errCh <- err
-				continue
+func (r *Scheduler) Start(ctx context.Context, dsn, name string, ttl int) error {
+	p, err := NewProducer(r.log, dsn, name, ttl)
+	if err != nil {
+		r.log.Errorln("cannot to connect to producer", err)
+		return err
+	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-r.ticker.C:
+				r.notify(ctx, p)
 			}
-			c.log.Infoln("send notification on", event.ID, ":", event.Title)
-			break
 		}
-	}
-}
+	}()
 
-func (c *Client) Send(ctx context.Context, sender func([]byte)) error {
-	msg, err := c.ch.Consume(c.queue.Name, "sender", true, false, false, false, nil)
-	if err != nil {
-		c.log.Errorln("failed to send message:", err)
-		return err
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case m := <-msg:
-			sender(m.Body)
-		}
-	}
-}
-
-func (c *Client) Close() error {
-	if err := c.ch.Close(); err != nil {
-		c.log.Errorln("error closing channel rmq:", err)
-		return err
-	}
-
-	if err := c.conn.Close(); err != nil {
-		c.log.Errorln("error closing connection rmq:", err)
-		return err
-	}
+	<-ctx.Done()
 
 	return nil
+}
+
+func (r *Scheduler) notify(ctx context.Context, p *Producer) {
+	events, err := r.storage.ListNotifyEvents(ctx)
+	if err != nil {
+		r.log.Errorln("cannot events for notify", err)
+	}
+
+	for _, e := range events {
+		message := e.GetNotification()
+		err := p.Publish(message)
+		if err != nil {
+			r.log.Errorln("cannot publish message", err)
+		}
+	}
 }
