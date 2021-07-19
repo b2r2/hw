@@ -44,11 +44,11 @@ func TestStorage(t *testing.T) {
 		ctx := context.Background()
 		id, err := events.Create(ctx, &event1)
 		require.NoError(t, err)
-		require.Equal(t, id, int32(1))
+		require.Equal(t, 1, id)
 
 		id, err = events.Create(ctx, &event2)
 		require.NoError(t, err)
-		require.Equal(t, id, int32(2))
+		require.Equal(t, 2, id)
 
 		allEvents, _ := events.ListAll(ctx)
 		require.Len(t, allEvents, 2)
@@ -62,7 +62,7 @@ func TestStorage(t *testing.T) {
 
 		event, err := events.Get(ctx, 1)
 		require.NoError(t, err)
-		require.Equal(t, event.ID, int32(1))
+		require.Equal(t, event.ID, 1)
 		require.Equal(t, event.Title, "First")
 
 		_, err = events.Get(ctx, 5)
@@ -73,7 +73,7 @@ func TestStorage(t *testing.T) {
 
 		id, err = events.Create(ctx, &storage.Event{})
 		require.NoError(t, err)
-		require.Equal(t, id, int32(3))
+		require.Equal(t, 3, id)
 	})
 	t.Run("concurrent", func(t *testing.T) {
 		l := 53

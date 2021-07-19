@@ -95,7 +95,7 @@ func main() {
 		}
 	}(cancel)
 
-	logg.Info("calendar app is running")
+	logg.Info("calendar app running")
 
 	<-mainContext.Done()
 

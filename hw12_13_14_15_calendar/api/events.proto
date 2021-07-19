@@ -9,15 +9,46 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
 service Calendar {
-  rpc Create(Event) returns (EventID);
-  rpc Update(Event) returns (google.protobuf.Empty);
-  rpc Get(EventID) returns (Event);
-  rpc Delete(EventID) returns (google.protobuf.Empty);
+  rpc Create(CreateRequest) returns (CreateResponse);
+  rpc Update(UpdateRequest) returns (google.protobuf.Empty);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Delete(DeleteRequest) returns (google.protobuf.Empty);
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty);
-  rpc ListAll(google.protobuf.Empty) returns (AllEvents);
-  rpc ListDay(google.protobuf.Timestamp) returns (AllEvents);
-  rpc ListWeek(google.protobuf.Timestamp) returns (AllEvents);
-  rpc ListMonth(google.protobuf.Timestamp) returns (AllEvents);
+  rpc ListAll(google.protobuf.Empty) returns (ListEventsResponse);
+  rpc ListDay(google.protobuf.Timestamp) returns (ListEventsResponse);
+  rpc ListWeek(google.protobuf.Timestamp) returns (ListEventsResponse);
+  rpc ListMonth(google.protobuf.Timestamp) returns (ListEventsResponse);
+}
+
+message CreateRequest {
+  Event event = 1;
+}
+
+message CreateResponse {
+  EventID eventID = 1;
+}
+
+message UpdateRequest {
+  Event event = 1;
+}
+
+message GetRequest {
+  EventID eventID = 1;
+}
+
+message GetResponse {
+  Event event = 1;
+}
+message DeleteRequest {
+  EventID eventID = 1;
+}
+
+message ListEventsResponse{
+  repeated Event ListEvents = 1;
+}
+
+message EventID{
+  int32 id=1;
 }
 
 message Event {
@@ -30,10 +61,3 @@ message Event {
   google.protobuf.Duration notification=7;
 }
 
-message EventID{
-  int32 id=1;
-}
-
-message AllEvents{
-  repeated Event AllEvents = 1;
-}

@@ -1,0 +1,17 @@
+[scheduler]
+duration = "60s"
+
+[logger]
+level = "DEBUG"
+file_path = "./logs/log_scheduler.out"
+
+[rabbit]
+ttl = 31536000000
+dsn = "amqp://guest:guest@localhost:5672/"
+
+[storage]
+host = "localhost"
+port = "5432"
+database = "calendar"
+ssl = "disable"
+is_mem = false

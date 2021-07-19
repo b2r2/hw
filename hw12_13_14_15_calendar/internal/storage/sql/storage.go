@@ -41,16 +41,16 @@ func (s *store) Close(_ context.Context) error {
 	return nil
 }
 
-func (s *store) Create(ctx context.Context, event *storage.Event) (int32, error) {
+func (s *store) Create(ctx context.Context, event *storage.Event) (int, error) {
 	var query string
 	var args []interface{}
-	if event.Notification != nil {
+	if event.NotificationTime != nil {
 		query = `
 			INSERT INTO event (title, start, stop, description, user_id, notification)
 			VALUES($1, $2, $3, $4, $5, $6)
 			RETURNING event_id
 		`
-		args = []interface{}{event.Title, event.Start, event.Stop, event.Description, event.UserID, event.Notification}
+		args = []interface{}{event.Title, event.Start, event.Stop, event.Description, event.UserID, event.NotificationTime}
 	} else {
 		query = `
 			INSERT INTO event (title, start, stop, description, user_id)
@@ -59,7 +59,7 @@ func (s *store) Create(ctx context.Context, event *storage.Event) (int32, error)
 		`
 		args = []interface{}{event.Title, event.Start, event.Stop, event.Description, event.UserID}
 	}
-	var id int32
+	var id int
 	err := s.db.QueryRowContext(ctx, query, args...).Scan(&id)
 	if err != nil {
 		return -1, fmt.Errorf("db exec: %w", err)
@@ -68,10 +68,10 @@ func (s *store) Create(ctx context.Context, event *storage.Event) (int32, error)
 	return id, nil
 }
 
-func (s *store) Update(ctx context.Context, id int32, change *storage.Event) error {
+func (s *store) Update(ctx context.Context, id int, change *storage.Event) error {
 	var query string
 	var args []interface{}
-	if change.Notification != nil {
+	if change.NotificationTime != nil {
 		query = `
 			UPDATE event
 			SET title = $1,
@@ -81,7 +81,7 @@ func (s *store) Update(ctx context.Context, id int32, change *storage.Event) err
 				notification = $5
 			WHERE event_id = $6;
 		`
-		args = []interface{}{change.Title, change.Start, change.Stop, change.Description, change.Notification, id}
+		args = []interface{}{change.Title, change.Start, change.Stop, change.Description, change.NotificationTime, id}
 	} else {
 		query = `
 			UPDATE event
@@ -109,7 +109,7 @@ func (s *store) Update(ctx context.Context, id int32, change *storage.Event) err
 	return nil
 }
 
-func (s *store) Delete(ctx context.Context, id int32) error {
+func (s *store) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM event WHERE event_id = $1`
 	r, err := s.db.ExecContext(ctx, query, id)
 	if err != nil {
@@ -136,7 +136,7 @@ func (s *store) DeleteAll(ctx context.Context) error {
 	return nil
 }
 
-func (s *store) Get(ctx context.Context, id int32) (*storage.Event, error) {
+func (s *store) Get(ctx context.Context, id int) (*storage.Event, error) {
 	query := `SELECT event_id, title, start, stop, description, user_id, notification FROM event WHERE event_id=$1`
 
 	var event storage.Event
@@ -147,7 +147,7 @@ func (s *store) Get(ctx context.Context, id int32) (*storage.Event, error) {
 		&event.Stop,
 		&event.Description,
 		&event.UserID,
-		&event.Notification); err != nil {
+		&event.NotificationTime); err != nil {
 		return nil, err
 	}
 
@@ -196,6 +196,12 @@ func (s *store) ListMonth(ctx context.Context, date time.Time) ([]*storage.Event
 	return s.queryList(ctx, query, year, month)
 }
 
+func (s *store) ListNotifyEvents(ctx context.Context) ([]*storage.Event, error) {
+	query := `
+SELECT * FROM event WHERE EXTRACT(EPOCH FROM start) - EXTRACT(EPOCH FROM NOW()) < notification;`
+	return s.queryList(ctx, query)
+}
+
 func (s *store) queryList(ctx context.Context, query string, args ...interface{}) (result []*storage.Event, resultErr error) {
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -225,7 +231,7 @@ func (s *store) queryList(ctx context.Context, query string, args ...interface{}
 			return
 		}
 		if notification.Valid {
-			event.Notification = (*time.Duration)(&notification.Int64)
+			event.NotificationTime = (*time.Duration)(&notification.Int64)
 		}
 		result = append(result, &event)
 	}
@@ -236,7 +242,7 @@ func (s *store) queryList(ctx context.Context, query string, args ...interface{}
 	return
 }
 
-func (s *store) IsTimeBusy(ctx context.Context, start, stop time.Time, excludeID int32) (bool, error) {
+func (s *store) IsTimeBusy(ctx context.Context, start, stop time.Time, excludeID int) (bool, error) {
 	var count int
 	query := `
 		SELECT Count(*) AS count

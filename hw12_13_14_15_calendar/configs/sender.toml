@@ -1,0 +1,7 @@
+[logger]
+level = "INFO"
+file_path = "./logs/log_sender.out"
+
+[rabbit]
+ttl = 31536000000
+dsn = "amqp://guest:guest@0.0.0.0:5672/"

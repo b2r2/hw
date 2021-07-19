@@ -6,8 +6,20 @@ LDFLAGS := -X main.release="develop" -X main.buildDate=$(shell date -u +%Y-%m-%d
 build:
 	go build -v -o $(BIN) -ldflags "$(LDFLAGS)" ./cmd/calendar
 
+build-sched:
+	go build -v -o ./bin/scheduler ./cmd/scheduler
+
+build-sender:
+	go build -v -o ./bin/sender ./cmd/sender
+
 run: build
-	$(BIN) --config ./configs/config.toml
+	$(BIN) --config ./configs/calendar.toml
+
+run-sched: build-sched
+	./bin/scheduler --config ./configs/scheduler.toml
+
+run-sender: build-sender
+	./bin/sender --config ./configs/sender.toml
 
 build-img:
 	docker build \
@@ -37,9 +49,9 @@ lint: install-lint-deps
 	golangci-lint run ./...
 
 generate:
-	go generate internal/server/grpc/server.go
+	go generate ./...
 
 fix:
 	golangci-lint run --fix
 
-.PHONY: build run build-img run-img version test lint up down generate fix
+.PHONY: build run build-img run-img version test lint up down generate fix build-sched build-sender run-sched run-sender
