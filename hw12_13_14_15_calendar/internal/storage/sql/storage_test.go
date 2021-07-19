@@ -18,7 +18,7 @@ func TestStorage(t *testing.T) {
 	t.Skip()
 	ctx := context.Background()
 	log := logrus.New()
-	events, err := sqlstorage.New(log, ctx, "host=localhost port=5432 user=calendar password=calendar dbname=calendar sslmode=disable")
+	events, err := sqlstorage.New(log, ctx, "host=localhost port=5432 user=calendar password=calendar dbname=postgres sslmode=disable")
 	require.NoError(t, err)
 	require.NotNil(t, events)
 

@@ -19,9 +19,7 @@ import (
 
 func TestHandler(t *testing.T) {
 	log := logrus.New()
-	// db, err := sqlstorage.New(log, context.Background(), "host=localhost port=5432 user=calendar password=calendar dbname=calendar sslmode=disable")
 	db := memorystorage.New(log)
-	// require.NoError(t, err)
 	require.NotNil(t, db)
 	handler := NewHandler(log, app.New(log, db))
 	router := NewRouter(log, handler, "test create")

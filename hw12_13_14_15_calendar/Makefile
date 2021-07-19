@@ -37,10 +37,10 @@ test:
 	go test -v -race ./...
 
 up:
-	goose -dir migrations postgres "user=calendar password=calendar dbname=calendar sslmode=disable" up
+	goose -dir migrations postgres "user=calendar password=calendar dbname=postgres sslmode=disable" up
 
 down:
-	goose -dir migrations postgres "user=calendar password=calendar dbname=calendar sslmode=disable" down
+	goose -dir migrations postgres "user=calendar password=calendar dbname=postgres sslmode=disable" down
 
 install-lint-deps:
 	(which golangci-lint > /dev/null) || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.40.1
